@@ -897,6 +897,12 @@ private:
 
         if (op->type.is_vector()) {
             Expr cast = op;
+
+            // Truncating multiplies require special care, because the
+            // simplifier can cause them to have denominators we do not expect.
+            // If the simplifier cancels a factor out of these patterns, we can
+            // still use them, but we have to inject the factor back into the
+            // expression.
             vector<Expr> matches;
             for (const Pattern &p : trunc_mpy) {
                 if (!check_pattern_target(p.flags, target)) {
