@@ -191,7 +191,7 @@ TUTORIAL_CXX_FLAGS ?= -std=c++11 -g -fno-omit-frame-pointer -fno-rtti -I $(ROOT_
 # capability of the CPU being compiled on via -march=native. This
 # presumes tests are run on the smae machine they are compiled on.
 TEST_CXX_FLAGS ?= $(TUTORIAL_CXX_FLAGS) $(CXX_WARNING_FLAGS) -march=native
-TEST_LD_FLAGS = -L$(BIN_DIR) -lHalide $(COMMON_LD_FLAGS)
+TEST_LD_FLAGS = -L$(BIN_DIR) -lHalide -lLLVM $(COMMON_LD_FLAGS)
 
 # gcc 4.8 fires a bogus warning on old versions of png.h
 CXX_VERSION = $(shell $(CXX) --version | head -n1)

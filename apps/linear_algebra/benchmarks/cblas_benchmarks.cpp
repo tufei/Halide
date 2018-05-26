@@ -26,7 +26,9 @@ extern "C" {
 }
 #elif defined(USE_OPENBLAS)
 # define BLAS_NAME "OpenBLAS"
+extern "C" {
 # include <cblas.h>
+}
 #elif defined(USE_CBLAS)
 # define BLAS_NAME "CBlas"
 extern "C" {
