@@ -4,7 +4,9 @@
 #include <limits>
 #include <random>
 #include <string>
+extern "C" {
 #include <cblas.h>
+}
 #include <halide_blas.h>
 
 #define RUN_TEST(method)                                                \
