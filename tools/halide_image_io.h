@@ -5,6 +5,7 @@
 #define HALIDE_IMAGE_IO_H
 
 #include <algorithm>
+#include <cctype>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -13,7 +14,6 @@
 #include <set>
 #include <string>
 #include <vector>
-#include <cctype>
 
 #ifndef HALIDE_NO_PNG
 #include "png.h"
@@ -21,6 +21,10 @@
 
 #ifndef HALIDE_NO_JPEG
 #include "jpeglib.h"
+#endif
+
+#ifndef HALIDE_NO_BPG
+#include "libbpg/bpg.h"
 #endif
 
 #include "HalideRuntime.h"  // for halide_type_t
@@ -54,9 +58,9 @@ struct FormatInfo {
 
 namespace Internal {
 
-typedef bool (*CheckFunc)(bool condition, const char* msg);
+typedef bool (*CheckFunc)(bool condition, const char *msg);
 
-inline bool CheckFail(bool condition, const char* msg) {
+inline bool CheckFail(bool condition, const char *msg) {
     if (!condition) {
         fprintf(stderr, "%s\n", msg);
         exit(-1);
@@ -64,7 +68,7 @@ inline bool CheckFail(bool condition, const char* msg) {
     return condition;
 }
 
-inline bool CheckReturn(bool condition, const char* msg) {
+inline bool CheckReturn(bool condition, const char *msg) {
     return condition;
 }
 
@@ -72,152 +76,513 @@ template<typename To, typename From>
 To convert(const From &from);
 
 // Convert to bool
-template<> inline bool convert(const bool &in) { return in; }
-template<> inline bool convert(const uint8_t &in) { return in != 0; }
-template<> inline bool convert(const uint16_t &in) { return in != 0; }
-template<> inline bool convert(const uint32_t &in) { return in != 0; }
-template<> inline bool convert(const uint64_t &in) { return in != 0; }
-template<> inline bool convert(const int8_t &in) { return in != 0; }
-template<> inline bool convert(const int16_t &in) { return in != 0; }
-template<> inline bool convert(const int32_t &in) { return in != 0; }
-template<> inline bool convert(const int64_t &in) { return in != 0; }
-template<> inline bool convert(const float &in) { return in != 0; }
-template<> inline bool convert(const double &in) { return in != 0; }
+template<>
+inline bool convert(const bool &in) {
+    return in;
+}
+template<>
+inline bool convert(const uint8_t &in) {
+    return in != 0;
+}
+template<>
+inline bool convert(const uint16_t &in) {
+    return in != 0;
+}
+template<>
+inline bool convert(const uint32_t &in) {
+    return in != 0;
+}
+template<>
+inline bool convert(const uint64_t &in) {
+    return in != 0;
+}
+template<>
+inline bool convert(const int8_t &in) {
+    return in != 0;
+}
+template<>
+inline bool convert(const int16_t &in) {
+    return in != 0;
+}
+template<>
+inline bool convert(const int32_t &in) {
+    return in != 0;
+}
+template<>
+inline bool convert(const int64_t &in) {
+    return in != 0;
+}
+template<>
+inline bool convert(const float &in) {
+    return in != 0;
+}
+template<>
+inline bool convert(const double &in) {
+    return in != 0;
+}
 
 // Convert to u8
-template<> inline uint8_t convert(const bool &in) { return in; }
-template<> inline uint8_t convert(const uint8_t &in) { return in; }
-template<> inline uint8_t convert(const uint16_t &in) {
+template<>
+inline uint8_t convert(const bool &in) {
+    return in;
+}
+template<>
+inline uint8_t convert(const uint8_t &in) {
+    return in;
+}
+template<>
+inline uint8_t convert(const uint16_t &in) {
     uint32_t tmp = (uint32_t)(in) + 0x80;
     // Fast approximation of div-by-257: see http://research.swtch.com/divmult
     return ((tmp * 255 + 255) >> 16);
 }
-template<> inline uint8_t convert(const uint32_t &in) { return (uint8_t) ((((uint64_t) in) + 0x00808080) / 0x01010101); }
+template<>
+inline uint8_t convert(const uint32_t &in) {
+    return (uint8_t)((((uint64_t) in) + 0x00808080) / 0x01010101);
+}
 // uint64 -> 8 just discards the lower 32 bits: if you were expecting more precision, well, sorry
-template<> inline uint8_t convert(const uint64_t &in) { return convert<uint8_t, uint32_t>(uint32_t(in >> 32)); }
-template<> inline uint8_t convert(const int8_t &in) { return convert<uint8_t, uint8_t>(in); }
-template<> inline uint8_t convert(const int16_t &in) { return convert<uint8_t, uint16_t>(in); }
-template<> inline uint8_t convert(const int32_t &in) { return convert<uint8_t, uint32_t>(in); }
-template<> inline uint8_t convert(const int64_t &in) { return convert<uint8_t, uint64_t>(in); }
-template<> inline uint8_t convert(const float &in) { return (uint8_t)(in*255.0f+0.5f); }
-template<> inline uint8_t convert(const double &in) { return (uint8_t)(in*255.0+0.5); }
+template<>
+inline uint8_t convert(const uint64_t &in) {
+    return convert<uint8_t, uint32_t>(uint32_t(in >> 32));
+}
+template<>
+inline uint8_t convert(const int8_t &in) {
+    return convert<uint8_t, uint8_t>(in);
+}
+template<>
+inline uint8_t convert(const int16_t &in) {
+    return convert<uint8_t, uint16_t>(in);
+}
+template<>
+inline uint8_t convert(const int32_t &in) {
+    return convert<uint8_t, uint32_t>(in);
+}
+template<>
+inline uint8_t convert(const int64_t &in) {
+    return convert<uint8_t, uint64_t>(in);
+}
+template<>
+inline uint8_t convert(const float &in) {
+    return (uint8_t)(in * 255.0f + 0.5f);
+}
+template<>
+inline uint8_t convert(const double &in) {
+    return (uint8_t)(in * 255.0 + 0.5);
+}
 
 // Convert to u16
-template<> inline uint16_t convert(const bool &in) { return in; }
-template<> inline uint16_t convert(const uint8_t &in) { return uint16_t(in) * 0x0101; }
-template<> inline uint16_t convert(const uint16_t &in) { return in; }
-template<> inline uint16_t convert(const uint32_t &in) { return in >> 16; }
-template<> inline uint16_t convert(const uint64_t &in) { return in >> 48; }
-template<> inline uint16_t convert(const int8_t &in) { return convert<uint16_t, uint8_t>(in); }
-template<> inline uint16_t convert(const int16_t &in) { return convert<uint16_t, uint16_t>(in); }
-template<> inline uint16_t convert(const int32_t &in) { return convert<uint16_t, uint32_t>(in); }
-template<> inline uint16_t convert(const int64_t &in) { return convert<uint16_t, uint64_t>(in); }
-template<> inline uint16_t convert(const float &in) { return (uint16_t)(in*65535.0f+0.5f); }
-template<> inline uint16_t convert(const double &in) { return (uint16_t)(in*65535.0+0.5); }
+template<>
+inline uint16_t convert(const bool &in) {
+    return in;
+}
+template<>
+inline uint16_t convert(const uint8_t &in) {
+    return uint16_t(in) * 0x0101;
+}
+template<>
+inline uint16_t convert(const uint16_t &in) {
+    return in;
+}
+template<>
+inline uint16_t convert(const uint32_t &in) {
+    return in >> 16;
+}
+template<>
+inline uint16_t convert(const uint64_t &in) {
+    return in >> 48;
+}
+template<>
+inline uint16_t convert(const int8_t &in) {
+    return convert<uint16_t, uint8_t>(in);
+}
+template<>
+inline uint16_t convert(const int16_t &in) {
+    return convert<uint16_t, uint16_t>(in);
+}
+template<>
+inline uint16_t convert(const int32_t &in) {
+    return convert<uint16_t, uint32_t>(in);
+}
+template<>
+inline uint16_t convert(const int64_t &in) {
+    return convert<uint16_t, uint64_t>(in);
+}
+template<>
+inline uint16_t convert(const float &in) {
+    return (uint16_t)(in * 65535.0f + 0.5f);
+}
+template<>
+inline uint16_t convert(const double &in) {
+    return (uint16_t)(in * 65535.0 + 0.5);
+}
 
 // Convert to u32
-template<> inline uint32_t convert(const bool &in) { return in; }
-template<> inline uint32_t convert(const uint8_t &in) { return uint32_t(in) * 0x01010101; }
-template<> inline uint32_t convert(const uint16_t &in) { return uint32_t(in) * 0x00010001; }
-template<> inline uint32_t convert(const uint32_t &in) { return in; }
-template<> inline uint32_t convert(const uint64_t &in) { return (uint32_t) (in >> 32); }
-template<> inline uint32_t convert(const int8_t &in) { return convert<uint32_t, uint8_t>(in); }
-template<> inline uint32_t convert(const int16_t &in) { return convert<uint32_t, uint16_t>(in); }
-template<> inline uint32_t convert(const int32_t &in) { return convert<uint32_t, uint32_t>(in); }
-template<> inline uint32_t convert(const int64_t &in) { return convert<uint32_t, uint64_t>(in); }
-template<> inline uint32_t convert(const float &in) { return (uint32_t)(in*4294967295.0+0.5); }
-template<> inline uint32_t convert(const double &in) { return (uint32_t)(in*4294967295.0+0.5f); }
+template<>
+inline uint32_t convert(const bool &in) {
+    return in;
+}
+template<>
+inline uint32_t convert(const uint8_t &in) {
+    return uint32_t(in) * 0x01010101;
+}
+template<>
+inline uint32_t convert(const uint16_t &in) {
+    return uint32_t(in) * 0x00010001;
+}
+template<>
+inline uint32_t convert(const uint32_t &in) {
+    return in;
+}
+template<>
+inline uint32_t convert(const uint64_t &in) {
+    return (uint32_t)(in >> 32);
+}
+template<>
+inline uint32_t convert(const int8_t &in) {
+    return convert<uint32_t, uint8_t>(in);
+}
+template<>
+inline uint32_t convert(const int16_t &in) {
+    return convert<uint32_t, uint16_t>(in);
+}
+template<>
+inline uint32_t convert(const int32_t &in) {
+    return convert<uint32_t, uint32_t>(in);
+}
+template<>
+inline uint32_t convert(const int64_t &in) {
+    return convert<uint32_t, uint64_t>(in);
+}
+template<>
+inline uint32_t convert(const float &in) {
+    return (uint32_t)(in * 4294967295.0 + 0.5);
+}
+template<>
+inline uint32_t convert(const double &in) {
+    return (uint32_t)(in * 4294967295.0 + 0.5f);
+}
 
 // Convert to u64
-template<> inline uint64_t convert(const bool &in) { return in; }
-template<> inline uint64_t convert(const uint8_t &in) { return uint64_t(in) * 0x0101010101010101LL; }
-template<> inline uint64_t convert(const uint16_t &in) { return uint64_t(in) * 0x0001000100010001LL; }
-template<> inline uint64_t convert(const uint32_t &in) { return uint64_t(in) * 0x0000000100000001LL; }
-template<> inline uint64_t convert(const uint64_t &in) { return in; }
-template<> inline uint64_t convert(const int8_t &in) { return convert<uint64_t, uint8_t>(in); }
-template<> inline uint64_t convert(const int16_t &in) { return convert<uint64_t, uint16_t>(in); }
-template<> inline uint64_t convert(const int32_t &in) { return convert<uint64_t, uint64_t>(in); }
-template<> inline uint64_t convert(const int64_t &in) { return convert<uint64_t, uint64_t>(in); }
-template<> inline uint64_t convert(const float &in) { return convert<uint64_t, uint32_t>((uint32_t)(in*4294967295.0+0.5)); }
-template<> inline uint64_t convert(const double &in) { return convert<uint64_t, uint32_t>((uint32_t)(in*4294967295.0+0.5)); }
+template<>
+inline uint64_t convert(const bool &in) {
+    return in;
+}
+template<>
+inline uint64_t convert(const uint8_t &in) {
+    return uint64_t(in) * 0x0101010101010101LL;
+}
+template<>
+inline uint64_t convert(const uint16_t &in) {
+    return uint64_t(in) * 0x0001000100010001LL;
+}
+template<>
+inline uint64_t convert(const uint32_t &in) {
+    return uint64_t(in) * 0x0000000100000001LL;
+}
+template<>
+inline uint64_t convert(const uint64_t &in) {
+    return in;
+}
+template<>
+inline uint64_t convert(const int8_t &in) {
+    return convert<uint64_t, uint8_t>(in);
+}
+template<>
+inline uint64_t convert(const int16_t &in) {
+    return convert<uint64_t, uint16_t>(in);
+}
+template<>
+inline uint64_t convert(const int32_t &in) {
+    return convert<uint64_t, uint64_t>(in);
+}
+template<>
+inline uint64_t convert(const int64_t &in) {
+    return convert<uint64_t, uint64_t>(in);
+}
+template<>
+inline uint64_t convert(const float &in) {
+    return convert<uint64_t, uint32_t>((uint32_t)(in * 4294967295.0 + 0.5));
+}
+template<>
+inline uint64_t convert(const double &in) {
+    return convert<uint64_t, uint32_t>((uint32_t)(in * 4294967295.0 + 0.5));
+}
 
 // Convert to i8
-template<> inline int8_t convert(const bool &in) { return in; }
-template<> inline int8_t convert(const uint8_t &in) { return convert<uint8_t, uint8_t>(in); }
-template<> inline int8_t convert(const uint16_t &in) { return convert<uint8_t, uint16_t>(in); }
-template<> inline int8_t convert(const uint32_t &in) { return convert<uint8_t, uint32_t>(in); }
-template<> inline int8_t convert(const uint64_t &in) { return convert<uint8_t, uint64_t>(in); }
-template<> inline int8_t convert(const int8_t &in) { return convert<uint8_t, int8_t>(in); }
-template<> inline int8_t convert(const int16_t &in) { return convert<uint8_t, int16_t>(in); }
-template<> inline int8_t convert(const int32_t &in) { return convert<uint8_t, int32_t>(in); }
-template<> inline int8_t convert(const int64_t &in) { return convert<uint8_t, int64_t>(in); }
-template<> inline int8_t convert(const float &in) { return convert<uint8_t, float>(in); }
-template<> inline int8_t convert(const double &in) { return convert<uint8_t, double>(in); }
+template<>
+inline int8_t convert(const bool &in) {
+    return in;
+}
+template<>
+inline int8_t convert(const uint8_t &in) {
+    return convert<uint8_t, uint8_t>(in);
+}
+template<>
+inline int8_t convert(const uint16_t &in) {
+    return convert<uint8_t, uint16_t>(in);
+}
+template<>
+inline int8_t convert(const uint32_t &in) {
+    return convert<uint8_t, uint32_t>(in);
+}
+template<>
+inline int8_t convert(const uint64_t &in) {
+    return convert<uint8_t, uint64_t>(in);
+}
+template<>
+inline int8_t convert(const int8_t &in) {
+    return convert<uint8_t, int8_t>(in);
+}
+template<>
+inline int8_t convert(const int16_t &in) {
+    return convert<uint8_t, int16_t>(in);
+}
+template<>
+inline int8_t convert(const int32_t &in) {
+    return convert<uint8_t, int32_t>(in);
+}
+template<>
+inline int8_t convert(const int64_t &in) {
+    return convert<uint8_t, int64_t>(in);
+}
+template<>
+inline int8_t convert(const float &in) {
+    return convert<uint8_t, float>(in);
+}
+template<>
+inline int8_t convert(const double &in) {
+    return convert<uint8_t, double>(in);
+}
 
 // Convert to i16
-template<> inline int16_t convert(const bool &in) { return in; }
-template<> inline int16_t convert(const uint8_t &in) { return convert<uint16_t, uint8_t>(in); }
-template<> inline int16_t convert(const uint16_t &in) { return convert<uint16_t, uint16_t>(in); }
-template<> inline int16_t convert(const uint32_t &in) { return convert<uint16_t, uint32_t>(in); }
-template<> inline int16_t convert(const uint64_t &in) { return convert<uint16_t, uint64_t>(in); }
-template<> inline int16_t convert(const int8_t &in) { return convert<uint16_t, int8_t>(in); }
-template<> inline int16_t convert(const int16_t &in) { return convert<uint16_t, int16_t>(in); }
-template<> inline int16_t convert(const int32_t &in) { return convert<uint16_t, int32_t>(in); }
-template<> inline int16_t convert(const int64_t &in) { return convert<uint16_t, int64_t>(in); }
-template<> inline int16_t convert(const float &in) { return convert<uint16_t, float>(in); }
-template<> inline int16_t convert(const double &in) { return convert<uint16_t, double>(in); }
+template<>
+inline int16_t convert(const bool &in) {
+    return in;
+}
+template<>
+inline int16_t convert(const uint8_t &in) {
+    return convert<uint16_t, uint8_t>(in);
+}
+template<>
+inline int16_t convert(const uint16_t &in) {
+    return convert<uint16_t, uint16_t>(in);
+}
+template<>
+inline int16_t convert(const uint32_t &in) {
+    return convert<uint16_t, uint32_t>(in);
+}
+template<>
+inline int16_t convert(const uint64_t &in) {
+    return convert<uint16_t, uint64_t>(in);
+}
+template<>
+inline int16_t convert(const int8_t &in) {
+    return convert<uint16_t, int8_t>(in);
+}
+template<>
+inline int16_t convert(const int16_t &in) {
+    return convert<uint16_t, int16_t>(in);
+}
+template<>
+inline int16_t convert(const int32_t &in) {
+    return convert<uint16_t, int32_t>(in);
+}
+template<>
+inline int16_t convert(const int64_t &in) {
+    return convert<uint16_t, int64_t>(in);
+}
+template<>
+inline int16_t convert(const float &in) {
+    return convert<uint16_t, float>(in);
+}
+template<>
+inline int16_t convert(const double &in) {
+    return convert<uint16_t, double>(in);
+}
 
 // Convert to i32
-template<> inline int32_t convert(const bool &in) { return in; }
-template<> inline int32_t convert(const uint8_t &in) { return convert<uint32_t, uint8_t>(in); }
-template<> inline int32_t convert(const uint16_t &in) { return convert<uint32_t, uint16_t>(in); }
-template<> inline int32_t convert(const uint32_t &in) { return convert<uint32_t, uint32_t>(in); }
-template<> inline int32_t convert(const uint64_t &in) { return convert<uint32_t, uint64_t>(in); }
-template<> inline int32_t convert(const int8_t &in) { return convert<uint32_t, int8_t>(in); }
-template<> inline int32_t convert(const int16_t &in) { return convert<uint32_t, int16_t>(in); }
-template<> inline int32_t convert(const int32_t &in) { return convert<uint32_t, int32_t>(in); }
-template<> inline int32_t convert(const int64_t &in) { return convert<uint32_t, int64_t>(in); }
-template<> inline int32_t convert(const float &in) { return convert<uint32_t, float>(in); }
-template<> inline int32_t convert(const double &in) { return convert<uint32_t, double>(in); }
+template<>
+inline int32_t convert(const bool &in) {
+    return in;
+}
+template<>
+inline int32_t convert(const uint8_t &in) {
+    return convert<uint32_t, uint8_t>(in);
+}
+template<>
+inline int32_t convert(const uint16_t &in) {
+    return convert<uint32_t, uint16_t>(in);
+}
+template<>
+inline int32_t convert(const uint32_t &in) {
+    return convert<uint32_t, uint32_t>(in);
+}
+template<>
+inline int32_t convert(const uint64_t &in) {
+    return convert<uint32_t, uint64_t>(in);
+}
+template<>
+inline int32_t convert(const int8_t &in) {
+    return convert<uint32_t, int8_t>(in);
+}
+template<>
+inline int32_t convert(const int16_t &in) {
+    return convert<uint32_t, int16_t>(in);
+}
+template<>
+inline int32_t convert(const int32_t &in) {
+    return convert<uint32_t, int32_t>(in);
+}
+template<>
+inline int32_t convert(const int64_t &in) {
+    return convert<uint32_t, int64_t>(in);
+}
+template<>
+inline int32_t convert(const float &in) {
+    return convert<uint32_t, float>(in);
+}
+template<>
+inline int32_t convert(const double &in) {
+    return convert<uint32_t, double>(in);
+}
 
 // Convert to i64
-template<> inline int64_t convert(const bool &in) { return in; }
-template<> inline int64_t convert(const uint8_t &in) { return convert<uint64_t, uint8_t>(in); }
-template<> inline int64_t convert(const uint16_t &in) { return convert<uint64_t, uint16_t>(in); }
-template<> inline int64_t convert(const uint32_t &in) { return convert<uint64_t, uint32_t>(in); }
-template<> inline int64_t convert(const uint64_t &in) { return convert<uint64_t, uint64_t>(in); }
-template<> inline int64_t convert(const int8_t &in) { return convert<uint64_t, int8_t>(in); }
-template<> inline int64_t convert(const int16_t &in) { return convert<uint64_t, int16_t>(in); }
-template<> inline int64_t convert(const int32_t &in) { return convert<uint64_t, int32_t>(in); }
-template<> inline int64_t convert(const int64_t &in) { return convert<uint64_t, int64_t>(in); }
-template<> inline int64_t convert(const float &in) { return convert<uint64_t, float>(in); }
-template<> inline int64_t convert(const double &in) { return convert<uint64_t, double>(in); }
+template<>
+inline int64_t convert(const bool &in) {
+    return in;
+}
+template<>
+inline int64_t convert(const uint8_t &in) {
+    return convert<uint64_t, uint8_t>(in);
+}
+template<>
+inline int64_t convert(const uint16_t &in) {
+    return convert<uint64_t, uint16_t>(in);
+}
+template<>
+inline int64_t convert(const uint32_t &in) {
+    return convert<uint64_t, uint32_t>(in);
+}
+template<>
+inline int64_t convert(const uint64_t &in) {
+    return convert<uint64_t, uint64_t>(in);
+}
+template<>
+inline int64_t convert(const int8_t &in) {
+    return convert<uint64_t, int8_t>(in);
+}
+template<>
+inline int64_t convert(const int16_t &in) {
+    return convert<uint64_t, int16_t>(in);
+}
+template<>
+inline int64_t convert(const int32_t &in) {
+    return convert<uint64_t, int32_t>(in);
+}
+template<>
+inline int64_t convert(const int64_t &in) {
+    return convert<uint64_t, int64_t>(in);
+}
+template<>
+inline int64_t convert(const float &in) {
+    return convert<uint64_t, float>(in);
+}
+template<>
+inline int64_t convert(const double &in) {
+    return convert<uint64_t, double>(in);
+}
 
 // Convert to f32
-template<> inline float convert(const bool &in) { return in; }
-template<> inline float convert(const uint8_t &in) { return in/255.0f; }
-template<> inline float convert(const uint16_t &in) { return in/65535.0f; }
-template<> inline float convert(const uint32_t &in) { return (float) (in/4294967295.0); }
-template<> inline float convert(const uint64_t &in) { return convert<float, uint32_t>(uint32_t(in >> 32)); }
-template<> inline float convert(const int8_t &in) { return convert<float, uint8_t>(in); }
-template<> inline float convert(const int16_t &in) { return convert<float, uint16_t>(in); }
-template<> inline float convert(const int32_t &in) { return convert<float, uint64_t>(in); }
-template<> inline float convert(const int64_t &in) { return convert<float, uint64_t>(in); }
-template<> inline float convert(const float &in) { return in; }
-template<> inline float convert(const double &in) { return (float) in; }
+template<>
+inline float convert(const bool &in) {
+    return in;
+}
+template<>
+inline float convert(const uint8_t &in) {
+    return in / 255.0f;
+}
+template<>
+inline float convert(const uint16_t &in) {
+    return in / 65535.0f;
+}
+template<>
+inline float convert(const uint32_t &in) {
+    return (float) (in / 4294967295.0);
+}
+template<>
+inline float convert(const uint64_t &in) {
+    return convert<float, uint32_t>(uint32_t(in >> 32));
+}
+template<>
+inline float convert(const int8_t &in) {
+    return convert<float, uint8_t>(in);
+}
+template<>
+inline float convert(const int16_t &in) {
+    return convert<float, uint16_t>(in);
+}
+template<>
+inline float convert(const int32_t &in) {
+    return convert<float, uint64_t>(in);
+}
+template<>
+inline float convert(const int64_t &in) {
+    return convert<float, uint64_t>(in);
+}
+template<>
+inline float convert(const float &in) {
+    return in;
+}
+template<>
+inline float convert(const double &in) {
+    return (float) in;
+}
 
 // Convert to f64
-template<> inline double convert(const bool &in) { return in; }
-template<> inline double convert(const uint8_t &in) { return in/255.0f; }
-template<> inline double convert(const uint16_t &in) { return in/65535.0f; }
-template<> inline double convert(const uint32_t &in) { return (double) (in/4294967295.0); }
-template<> inline double convert(const uint64_t &in) { return convert<double, uint32_t>(uint32_t(in >> 32)); }
-template<> inline double convert(const int8_t &in) { return convert<double, uint8_t>(in); }
-template<> inline double convert(const int16_t &in) { return convert<double, uint16_t>(in); }
-template<> inline double convert(const int32_t &in) { return convert<double, uint64_t>(in); }
-template<> inline double convert(const int64_t &in) { return convert<double, uint64_t>(in); }
-template<> inline double convert(const float &in) { return (double) in; }
-template<> inline double convert(const double &in) { return in; }
+template<>
+inline double convert(const bool &in) {
+    return in;
+}
+template<>
+inline double convert(const uint8_t &in) {
+    return in / 255.0f;
+}
+template<>
+inline double convert(const uint16_t &in) {
+    return in / 65535.0f;
+}
+template<>
+inline double convert(const uint32_t &in) {
+    return (double) (in / 4294967295.0);
+}
+template<>
+inline double convert(const uint64_t &in) {
+    return convert<double, uint32_t>(uint32_t(in >> 32));
+}
+template<>
+inline double convert(const int8_t &in) {
+    return convert<double, uint8_t>(in);
+}
+template<>
+inline double convert(const int16_t &in) {
+    return convert<double, uint16_t>(in);
+}
+template<>
+inline double convert(const int32_t &in) {
+    return convert<double, uint64_t>(in);
+}
+template<>
+inline double convert(const int64_t &in) {
+    return convert<double, uint64_t>(in);
+}
+template<>
+inline double convert(const float &in) {
+    return (double) in;
+}
+template<>
+inline double convert(const double &in) {
+    return in;
+}
 
 inline std::string to_lowercase(const std::string &s) {
     std::string r = s;
@@ -260,8 +625,37 @@ inline void write_big_endian(const uint16_t &src, uint8_t *dst) {
     dst[1] = src & 0xff;
 }
 
+template<typename SrcElemType, typename DstElemType>
+void write_big_endian(const SrcElemType &src, DstElemType *dst);
+
+#if 0
+template<>
+inline void write_big_endian(const uint8_t &src, uint8_t *dst) {
+    *dst = src;
+}
+#endif
+
+template<>
+inline void write_big_endian(const uint16_t &src, uint16_t *dst) {
+    *dst = src;
+}
+
+#if 0
+template<>
+inline void write_big_endian(const uint16_t &src, uint8_t *dst) {
+    dst[0] = src >> 8;
+    dst[1] = src & 0xff;
+}
+#endif
+
+template<>
+inline void write_big_endian(const uint8_t &src, uint16_t *dst) {
+    *dst = src;
+}
+
 struct FileOpener {
-    FileOpener(const std::string &filename, const char* mode) : f(fopen(filename.c_str(), mode)) {
+    FileOpener(const std::string &filename, const char *mode)
+        : f(fopen(filename.c_str(), mode)) {
         // nothing
     }
 
@@ -271,13 +665,27 @@ struct FileOpener {
         }
     }
 
+    // report the size of a file in bytes
+    long get_size() {
+        long curr_pos = ftell(f);
+        fseek(f, 0L, SEEK_END);
+        long end_pos = ftell(f);
+        fseek(f, curr_pos, SEEK_SET);
+        return end_pos;
+    }
+
+    // rewind file
+    void rewind() {
+        std::rewind(f);
+    }
+
     // read a line of data, skipping lines that begin with '#"
     char *read_line(char *buf, int maxlen) {
         char *status;
         do {
             status = fgets(buf, maxlen, f);
-        } while(status && buf[0] == '#');
-        return(status);
+        } while (status && buf[0] == '#');
+        return (status);
     }
 
     // call read_line and to a sscanf() on it
@@ -321,7 +729,7 @@ struct FileOpener {
         return write_bytes(&data[0], sizeof(T) * N);
     }
 
-    FILE * const f;
+    FILE *const f;
 };
 
 // Read a row of ElemTypes from a byte buffer and copy them into a specific image row.
@@ -336,7 +744,7 @@ void read_big_endian_row(const uint8_t *src, int y, ImageType *im) {
         const int cmax = im_typed.dim(2).max();
         for (int x = xmin; x <= xmax; x++) {
             for (int c = cmin; c <= cmax; c++) {
-                im_typed(x, y, c+cmin) = read_big_endian<ElemType>(src);
+                im_typed(x, y, c + cmin) = read_big_endian<ElemType>(src);
                 src += sizeof(ElemType);
             }
         }
@@ -368,6 +776,38 @@ void write_big_endian_row(const ImageType &im, int y, uint8_t *dst) {
         for (int x = xmin; x <= xmax; x++) {
             write_big_endian<ElemType>(im_typed(x, y), dst);
             dst += sizeof(ElemType);
+        }
+    }
+}
+
+// Copy an image into a byte buffer.
+// Multibyte elements are written in big-endian layout.
+template<typename SrcElemType, typename DstElemType, typename ImageType>
+void write_big_endian_image(const ImageType &im, uint8_t *dst[]) {
+    auto im_typed = im.template as<SrcElemType>();
+    const int xmin = im_typed.dim(0).min();
+    const int xmax = im_typed.dim(0).max();
+    const int ymin = im_typed.dim(1).min();
+    const int ymax = im_typed.dim(1).max();
+    if (im_typed.dimensions() > 2) {
+        const int cmin = im_typed.dim(2).min();
+        const int cmax = im_typed.dim(2).max();
+        for (int c = cmin; c <= cmax; c++) {
+            DstElemType *p = reinterpret_cast<DstElemType *>(dst[c]);
+            for (int y = ymin; y <= ymax; y++) {
+                for (int x = xmin; x <= xmax; x++) {
+                    write_big_endian<SrcElemType, DstElemType>(im_typed(x, y, c), p);
+                    p++;
+                }
+            }
+        }
+    } else {
+        DstElemType *p = reinterpret_cast<DstElemType *>(dst[0]);
+        for (int y = ymin; y <= ymax; y++) {
+            for (int x = xmin; x <= xmax; x++) {
+                write_big_endian<SrcElemType, DstElemType>(im_typed(x, y), p);
+                p++;
+            }
         }
     }
 }
@@ -426,9 +866,7 @@ bool load_png(const std::string &filename, ImageType *im) {
 
     png_read_update_info(png_ptr, info_ptr);
 
-    auto copy_to_image = bit_depth == 8 ?
-        Internal::read_big_endian_row<uint8_t, ImageType> :
-        Internal::read_big_endian_row<uint16_t, ImageType>;
+    auto copy_to_image = bit_depth == 8 ? Internal::read_big_endian_row<uint8_t, ImageType> : Internal::read_big_endian_row<uint16_t, ImageType>;
 
     std::vector<uint8_t> row(png_get_rowbytes(png_ptr, info_ptr));
     const int ymin = im->dim(1).min();
@@ -465,7 +903,7 @@ bool save_png(ImageType &im, const std::string &filename) {
     const int channels = im.channels();
 
     if (!check(channels >= 1 && channels <= 4,
-           "Can't write PNG files that have other than 1, 2, 3, or 4 channels")) {
+               "Can't write PNG files that have other than 1, 2, 3, or 4 channels")) {
         return false;
     }
 
@@ -509,9 +947,7 @@ bool save_png(ImageType &im, const std::string &filename) {
 
     png_write_info(png_ptr, info_ptr);
 
-    auto copy_from_image = bit_depth == 8 ?
-        Internal::write_big_endian_row<uint8_t, ImageType> :
-        Internal::write_big_endian_row<uint16_t, ImageType>;
+    auto copy_from_image = bit_depth == 8 ? Internal::write_big_endian_row<uint8_t, ImageType> : Internal::write_big_endian_row<uint16_t, ImageType>;
 
     std::vector<uint8_t> row(png_get_rowbytes(png_ptr, info_ptr));
     const int ymin = im.dim(1).min();
@@ -526,7 +962,7 @@ bool save_png(ImageType &im, const std::string &filename) {
     return true;
 }
 
-#endif // not HALIDE_NO_PNG
+#endif  // not HALIDE_NO_PNG
 
 template<Internal::CheckFunc check>
 bool read_pnm_header(Internal::FileOpener &f, const std::string &hdr_fmt, int *width, int *height, int *bit_depth) {
@@ -582,9 +1018,7 @@ bool load_pnm(const std::string &filename, int channels, ImageType *im) {
     }
     *im = ImageType(im_type, im_dimensions);
 
-    auto copy_to_image = bit_depth == 8 ?
-        Internal::read_big_endian_row<uint8_t, ImageType> :
-        Internal::read_big_endian_row<uint16_t, ImageType>;
+    auto copy_to_image = bit_depth == 8 ? Internal::read_big_endian_row<uint8_t, ImageType> : Internal::read_big_endian_row<uint16_t, ImageType>;
 
     std::vector<uint8_t> row(width * channels * (bit_depth / 8));
     const int ymin = im->dim(1).min();
@@ -619,11 +1053,9 @@ bool save_pnm(ImageType &im, const int channels, const std::string &filename) {
         return false;
     }
     const char *hdr_fmt = channels == 3 ? "P6" : "P5";
-    fprintf(f.f, "%s\n%d %d\n%d\n", hdr_fmt, width, height, (1<<bit_depth)-1);
+    fprintf(f.f, "%s\n%d %d\n%d\n", hdr_fmt, width, height, (1 << bit_depth) - 1);
 
-    auto copy_from_image = bit_depth == 8 ?
-        Internal::write_big_endian_row<uint8_t, ImageType> :
-        Internal::write_big_endian_row<uint16_t, ImageType>;
+    auto copy_from_image = bit_depth == 8 ? Internal::write_big_endian_row<uint8_t, ImageType> : Internal::write_big_endian_row<uint16_t, ImageType>;
 
     std::vector<uint8_t> row(width * channels * (bit_depth / 8));
     const int ymin = im.dim(1).min();
@@ -784,20 +1216,200 @@ bool save_jpg(ImageType &im, const std::string &filename) {
 
 #endif  // not HALIDE_NO_JPEG
 
+#ifndef HALIDE_NO_BPG
+
+template<typename ImageType, Internal::CheckFunc check = Internal::CheckReturn>
+bool load_bpg(const std::string &filename, ImageType *im) {
+    static_assert(!ImageType::has_static_halide_type, "");
+
+    Internal::FileOpener f(filename, "rb");
+    if (!check(f.f != nullptr, "File could not be opened for reading")) {
+        return false;
+    }
+
+    uint8_t header[BPG_DECODER_INFO_BUF_SIZE];
+    if (!check(f.read_array(header), "File ended before end of header")) {
+        return false;
+    }
+
+    BPGImageInfo info;
+    if (!check(!bpg_decoder_get_info_from_buf(&info, NULL, header, sizeof(header)), "File is not recognized as a BPG file")) {
+        return false;
+    }
+
+    long f_length = f.get_size();
+    f.rewind();
+
+    std::unique_ptr<uint8_t> raw_buf(new uint8_t[f_length]);
+    if (!check(f.read_bytes(raw_buf.get(), f_length), "File reading error")) {
+        return false;
+    }
+
+    BPGDecoderContext *bpg = bpg_decoder_open();
+    if (!check(bpg != nullptr, "bpg_decoder_open() failed")) {
+        return false;
+    }
+
+    if (!check(!bpg_decoder_decode(bpg, raw_buf.get(), f_length), "bpg_decoder_decode() failed")) {
+        return false;
+    }
+
+    if (!check(!bpg_decoder_get_info(bpg, &info), "bpg_decoder_get_info() failed")) {
+        return false;
+    }
+
+    BPGDecoderOutputFormat output_format;
+    BPGColorSpaceEnum color_space = static_cast<BPGColorSpaceEnum>(info.color_space);
+    BPGImageFormatEnum image_format = static_cast<BPGImageFormatEnum>(info.format);
+    const int width = info.width;
+    const int height = info.height;
+    const int channels = (BPG_FORMAT_GRAY == image_format ? 1 : 3) + (!!info.has_alpha);
+    const int bit_depth = info.bit_depth;
+
+    const halide_type_t im_type(halide_type_uint, bit_depth);
+    std::vector<int> im_dimensions = { width, height };
+    if (channels != 1) {
+        im_dimensions.push_back(channels);
+    }
+
+    if (16 == bit_depth) {
+        output_format = info.has_alpha ? BPG_OUTPUT_FORMAT_RGBA64 : BPG_OUTPUT_FORMAT_RGB48;
+    } else {
+        output_format = info.has_alpha ? BPG_OUTPUT_FORMAT_RGBA32 : BPG_OUTPUT_FORMAT_RGB24;
+    }
+
+    *im = ImageType(im_type, im_dimensions);
+
+    auto copy_to_image = bit_depth == 8 ? Internal::read_big_endian_row<uint8_t, ImageType> : Internal::read_big_endian_row<uint16_t, ImageType>;
+
+    if (!check(!bpg_decoder_start(bpg, output_format), "bpg_decoder_start() failed")) {
+        return false;
+    }
+
+    std::vector<uint8_t> row(im->width() * channels * im->type().bytes());
+    const int ymin = im->dim(1).min();
+    const int ymax = im->dim(1).max();
+    for (int y = ymin; y <= ymax; ++y) {
+        if (!check(!bpg_decoder_get_line(bpg, row.data()), "bpg_decoder_get_line() failed")) {
+            return false;
+        }
+        copy_to_image(row.data(), y, im);
+    }
+
+    bpg_decoder_close(bpg);
+
+    return true;
+}
+
+inline const std::set<FormatInfo> &query_bpg() {
+    static std::set<FormatInfo> info = {
+        { halide_type_t(halide_type_uint, 8), 2 },
+        { halide_type_t(halide_type_uint, 16), 2 },
+        { halide_type_t(halide_type_uint, 8), 3 },
+        { halide_type_t(halide_type_uint, 16), 3 },
+    };
+    return info;
+}
+
+template<typename ImageType, Internal::CheckFunc check = Internal::CheckReturn>
+bool save_bpg(ImageType &im, const std::string &filename) {
+    static_assert(!ImageType::has_static_halide_type, "");
+
+    im.copy_to_host();
+
+    const int width = im.width();
+    const int height = im.height();
+    const int channels = im.channels();
+
+    if (!check(channels >= 1 && channels <= 4,
+               "Can't write BPG files that have other than 1, 2, 3, or 4 channels")) {
+        return false;
+    }
+
+    BPGEncoderInfo info;
+    bpg_encoder_query_info(&info);
+
+    BPGEncoderParameters *params;
+    if (!check((params = bpg_encoder_param_alloc()) != nullptr, "bpg_encoder_param_alloc() failed")) {
+        return false;
+    }
+
+    memset(params, 0, sizeof(BPGEncoderParameters));
+    params->compress_level = info.default_compress_level;
+    params->alpha_qp = -1;
+    params->qp = info.default_qp;
+    params->preferred_chroma_format = 2 < channels ? BPG_FORMAT_444 : BPG_FORMAT_GRAY;
+
+    BPGEncoderContext *bpg;
+    if (!check((bpg = bpg_encoder_open(params)) != nullptr, "bpg_encoder_open() failed")) {
+        return false;
+    }
+
+    std::unique_ptr<Image> img(new Image);
+    memset(img.get(), 0, sizeof(Image));
+    img->w = width;
+    img->h = height;
+    img->format = params->preferred_chroma_format;
+    img->has_alpha = 2 == channels || 4 == channels;
+    img->color_space = BPG_CS_RGB;
+    img->bit_depth = static_cast<uint8_t>(im.type().bits());
+    img->pixel_shift = 1;
+    img->c_h_phase = 1;
+
+    // open file
+    Internal::FileOpener f(filename, "wb");
+    if (!check(f.f != nullptr, "File could not be opened for writing")) {
+        return false;
+    }
+
+    auto copy_from_image = img->bit_depth == 8
+                               ? Internal::write_big_endian_image<uint8_t, uint16_t, ImageType>
+                               : Internal::write_big_endian_image<uint16_t, uint16_t, ImageType>;
+
+    for (int i = 0; i < channels; ++i) {
+        img->linesize[i] = ((width + 15) & ~0x0F) * sizeof(uint16_t);
+        img->data[i] = reinterpret_cast<uint8_t *>(malloc(((height + 15) & ~0x0F) * img->linesize[i]));
+    }
+
+    copy_from_image(im, img->data);
+
+    int (*pf)(void *, const uint8_t *, int){
+        [](void *p, const uint8_t *buf, int len) {
+            Internal::FileOpener *f = reinterpret_cast<Internal::FileOpener *>(p);
+            return f->write_bytes(buf, len) ? len : 0;
+        }
+    };
+    if (!check(!bpg_encoder_encode(bpg, img.get(), pf, &f), "bpg_encoder_encode() failed")) {
+        return false;
+    }
+
+    for (int i = 0; i < channels; ++i) {
+        free(img->data[i]);
+    }
+
+    bpg_encoder_close(bpg);
+
+    bpg_encoder_param_free(params);
+
+    return true;
+}
+
+#endif  // not HALIDE_NO_BPG
+
 constexpr int kNumTmpCodes = 10;
 
 inline const halide_type_t *tmp_code_to_halide_type() {
     static const halide_type_t tmp_code_to_halide_type_[kNumTmpCodes] = {
-      { halide_type_float, 32 },
-      { halide_type_float, 64 },
-      { halide_type_uint, 8 },
-      { halide_type_int, 8 },
-      { halide_type_uint, 16 },
-      { halide_type_int, 16 },
-      { halide_type_uint, 32 },
-      { halide_type_int, 32 },
-      { halide_type_uint, 64 },
-      { halide_type_int, 64 }
+        { halide_type_float, 32 },
+        { halide_type_float, 64 },
+        { halide_type_uint, 8 },
+        { halide_type_int, 8 },
+        { halide_type_uint, 16 },
+        { halide_type_int, 16 },
+        { halide_type_uint, 32 },
+        { halide_type_int, 32 },
+        { halide_type_uint, 64 },
+        { halide_type_int, 64 }
     };
     return tmp_code_to_halide_type_;
 }
@@ -808,17 +1420,17 @@ template<typename ImageType>
 bool buffer_is_compact_planar(ImageType &im) {
     const halide_type_t im_type = im.type();
     const size_t elem_size = (im_type.bits / 8);
-    if (((uint8_t*)im.begin() + (im.number_of_elements() * elem_size)) != (uint8_t*) im.end()) {
+    if (((uint8_t *) im.begin() + (im.number_of_elements() * elem_size)) != (uint8_t *) im.end()) {
         return false;
     }
     for (int d = 1; d < im.dimensions(); ++d) {
-        if (im.dim(d-1).stride() > im.dim(d).stride()) {
+        if (im.dim(d - 1).stride() > im.dim(d).stride()) {
             return false;
         }
         // Strides can only match if the previous dimension has extent 1
         // (this can happen when artificially adding dimension(s), e.g.
         // to write a .tmp file)
-        if (im.dim(d-1).stride() == im.dim(d).stride() && im.dim(d-1).extent() != 1) {
+        if (im.dim(d - 1).stride() == im.dim(d).stride() && im.dim(d - 1).extent() != 1) {
             return false;
         }
     }
@@ -841,7 +1453,8 @@ bool load_tmp(const std::string &filename, ImageType *im) {
     }
 
     if (!check(header[0] > 0 && header[1] > 0 && header[2] > 0 && header[3] > 0 &&
-               header[4] >= 0 && header[4] < kNumTmpCodes, "Bad header on .tmp file")) {
+                   header[4] >= 0 && header[4] < kNumTmpCodes,
+               "Bad header on .tmp file")) {
         return false;
     }
 
@@ -865,16 +1478,16 @@ bool load_tmp(const std::string &filename, ImageType *im) {
 inline const std::set<FormatInfo> &query_tmp() {
     // TMP files require exactly 4 dimensions.
     static std::set<FormatInfo> info = {
-      { halide_type_t(halide_type_float, 32), 4 },
-      { halide_type_t(halide_type_float, 64), 4 },
-      { halide_type_t(halide_type_uint, 8), 4 },
-      { halide_type_t(halide_type_int, 8), 4 },
-      { halide_type_t(halide_type_uint, 16), 4 },
-      { halide_type_t(halide_type_int, 16), 4 },
-      { halide_type_t(halide_type_uint, 32), 4 },
-      { halide_type_t(halide_type_int, 32), 4 },
-      { halide_type_t(halide_type_uint, 64), 4 },
-      { halide_type_t(halide_type_int, 64), 4 },
+        { halide_type_t(halide_type_float, 32), 4 },
+        { halide_type_t(halide_type_float, 64), 4 },
+        { halide_type_t(halide_type_uint, 8), 4 },
+        { halide_type_t(halide_type_int, 8), 4 },
+        { halide_type_t(halide_type_uint, 16), 4 },
+        { halide_type_t(halide_type_int, 16), 4 },
+        { halide_type_t(halide_type_uint, 32), 4 },
+        { halide_type_t(halide_type_int, 32), 4 },
+        { halide_type_t(halide_type_uint, 64), 4 },
+        { halide_type_t(halide_type_int, 64), 4 },
     };
     return info;
 }
@@ -936,10 +1549,8 @@ bool save_tmp(ImageType &im, const std::string &filename) {
     return true;
 }
 
-
 // ".mat" is the matlab level 5 format documented here:
 // http://www.mathworks.com/help/pdf_doc/matlab/matfile_format.pdf
-
 
 enum MatlabTypeCode {
     miINT8 = 1,
@@ -1013,7 +1624,7 @@ bool load_mat(const std::string &filename, ImageType *im) {
     if (!check(shape_header[0] == miINT32, "Could not parse this .mat file: bad shape header\n")) {
         return false;
     }
-    int dims = shape_header[1]/4;
+    int dims = shape_header[1] / 4;
     std::vector<int> extents(dims);
     if (!check(f.read_vector(&extents), "Could not read .mat header\n")) {
         return false;
@@ -1200,7 +1811,7 @@ bool save_mat(ImageType &im, const std::string &filename) {
     std::string name = filename.substr(0, idx);
     idx = filename.rfind('/');
     if (idx != std::string::npos) {
-        name = name.substr(idx+1);
+        name = name.substr(idx + 1);
     }
 
     // Matlab variable names conform to similar rules as C
@@ -1213,15 +1824,16 @@ bool save_mat(ImageType &im, const std::string &filename) {
         }
     }
 
-    uint32_t name_size = (int)name.size();
-    while (name.size() & 0x7) name += '\0';
+    uint32_t name_size = (int) name.size();
+    while (name.size() & 0x7)
+        name += '\0';
 
     char header[128] = "MATLAB 5.0 MAT-file, produced by Halide";
     int len = strlen(header);
     memset(header + len, ' ', sizeof(header) - len);
 
     // Version
-    *((uint16_t *)(header + 124)) = 0x0100;
+    *((uint16_t *) (header + 124)) = 0x0100;
 
     // Endianness check
     header[126] = 'I';
@@ -1241,7 +1853,7 @@ bool save_mat(ImageType &im, const std::string &filename) {
 
     // Matrix header
     uint32_t matrix_header[2] = {
-        miMATRIX, 40 + padded_dims * 4 + (uint32_t)name.size() + (uint32_t)payload_bytes
+        miMATRIX, 40 + padded_dims * 4 + (uint32_t) name.size() + (uint32_t) payload_bytes
     };
 
     // Array flags
@@ -1251,16 +1863,17 @@ bool save_mat(ImageType &im, const std::string &filename) {
 
     // Shape
     int32_t shape[2] = {
-        miINT32, im.dimensions() * 4,
+        miINT32,
+        im.dimensions() * 4,
     };
     std::vector<int> extents(im.dimensions());
     for (int d = 0; d < im.dimensions(); d++) {
         extents[d] = im.dim(d).extent();
     }
-    while ((int)extents.size() < dims) {
+    while ((int) extents.size() < dims) {
         extents.push_back(1);
     }
-    while ((int)extents.size() < padded_dims) {
+    while ((int) extents.size() < padded_dims) {
         extents.push_back(0);
     }
 
@@ -1273,7 +1886,7 @@ bool save_mat(ImageType &im, const std::string &filename) {
 
     // Payload header
     uint32_t payload_header[2] = {
-        type_code, (uint32_t)payload_bytes
+        type_code, (uint32_t) payload_bytes
     };
 
     bool success =
@@ -1306,12 +1919,11 @@ bool save_mat(ImageType &im, const std::string &filename) {
     return true;
 }
 
-
 template<typename ImageType, Internal::CheckFunc check>
 struct ImageIO {
     std::function<bool(const std::string &, ImageType *)> load;
     std::function<bool(ImageType &im, const std::string &)> save;
-    std::function<const std::set<FormatInfo>&()> query;
+    std::function<const std::set<FormatInfo> &()> query;
 };
 
 template<typename ImageType, Internal::CheckFunc check>
@@ -1320,16 +1932,19 @@ bool find_imageio(const std::string &filename, ImageIO<ImageType, check> *result
 
     const std::map<std::string, ImageIO<ImageType, check>> m = {
 #ifndef HALIDE_NO_JPEG
-        {"jpeg", {load_jpg<ImageType, check>, save_jpg<ImageType, check>, query_jpg}},
-        {"jpg", {load_jpg<ImageType, check>, save_jpg<ImageType, check>, query_jpg}},
+        { "jpeg", { load_jpg<ImageType, check>, save_jpg<ImageType, check>, query_jpg } },
+        { "jpg", { load_jpg<ImageType, check>, save_jpg<ImageType, check>, query_jpg } },
 #endif
-        {"pgm", {load_pgm<ImageType, check>, save_pgm<ImageType, check>, query_pgm}},
+        { "pgm", { load_pgm<ImageType, check>, save_pgm<ImageType, check>, query_pgm } },
 #ifndef HALIDE_NO_PNG
-        {"png", {load_png<ImageType, check>, save_png<ImageType, check>, query_png}},
+        { "png", { load_png<ImageType, check>, save_png<ImageType, check>, query_png } },
 #endif
-        {"ppm", {load_ppm<ImageType, check>, save_ppm<ImageType, check>, query_ppm}},
-        {"tmp", {load_tmp<ImageType, check>, save_tmp<ImageType, check>, query_tmp}},
-        {"mat", {load_mat<ImageType, check>, save_mat<ImageType, check>, query_mat}}
+#ifndef HALIDE_NO_BPG
+        { "bpg", { load_bpg<ImageType, check>, save_bpg<ImageType, check>, query_bpg } },
+#endif
+        { "ppm", { load_ppm<ImageType, check>, save_ppm<ImageType, check>, query_ppm } },
+        { "tmp", { load_tmp<ImageType, check>, save_tmp<ImageType, check>, query_tmp } },
+        { "mat", { load_mat<ImageType, check>, save_mat<ImageType, check>, query_mat } }
     };
     std::string ext = Internal::get_lowercase_extension(filename);
     auto it = m.find(ext);
@@ -1400,7 +2015,7 @@ struct ImageTypeConversion {
     template<typename DstElemType, typename ImageType,
              typename std::enable_if<ImageType::has_static_halide_type && !std::is_void<DstElemType>::value>::type * = nullptr>
     static auto convert_image(const ImageType &src) ->
-            typename Internal::ImageTypeWithElemType<ImageType, DstElemType>::type {
+        typename Internal::ImageTypeWithElemType<ImageType, DstElemType>::type {
         // The enable_if ensures this will never fire; this is here primarily
         // as documentation and a backstop against breakage.
         static_assert(ImageType::has_static_halide_type,
@@ -1431,7 +2046,7 @@ struct ImageTypeConversion {
     template<typename DstElemType, typename ImageType,
              typename std::enable_if<!ImageType::has_static_halide_type && !std::is_void<DstElemType>::value>::type * = nullptr>
     static auto convert_image(const ImageType &src) ->
-            typename Internal::ImageTypeWithElemType<ImageType, DstElemType>::type {
+        typename Internal::ImageTypeWithElemType<ImageType, DstElemType>::type {
         // The enable_if ensures this will never fire; this is here primarily
         // as documentation and a backstop against breakage.
         static_assert(!ImageType::has_static_halide_type,
@@ -1439,43 +2054,43 @@ struct ImageTypeConversion {
 
         const halide_type_t src_type = src.type();
         switch (Internal::halide_type_code((halide_type_code_t) src_type.code, src_type.bits)) {
-            case Internal::halide_type_code(halide_type_float, 32):
-                return convert_image<DstElemType>(src.template as<float>());
-            case Internal::halide_type_code(halide_type_float, 64):
-                return convert_image<DstElemType>(src.template as<double>());
-            case Internal::halide_type_code(halide_type_int, 8):
-                return convert_image<DstElemType>(src.template as<int8_t>());
-            case Internal::halide_type_code(halide_type_int, 16):
-                return convert_image<DstElemType>(src.template as<int16_t>());
-            case Internal::halide_type_code(halide_type_int, 32):
-                return convert_image<DstElemType>(src.template as<int32_t>());
-            case Internal::halide_type_code(halide_type_int, 64):
-                return convert_image<DstElemType>(src.template as<int64_t>());
-            case Internal::halide_type_code(halide_type_uint, 1):
-                return convert_image<DstElemType>(src.template as<bool>());
-            case Internal::halide_type_code(halide_type_uint, 8):
-                return convert_image<DstElemType>(src.template as<uint8_t>());
-            case Internal::halide_type_code(halide_type_uint, 16):
-                return convert_image<DstElemType>(src.template as<uint16_t>());
-            case Internal::halide_type_code(halide_type_uint, 32):
-                return convert_image<DstElemType>(src.template as<uint32_t>());
-            case Internal::halide_type_code(halide_type_uint, 64):
-                return convert_image<DstElemType>(src.template as<uint64_t>());
-            default:
-                assert(false && "Unsupported type");
-                using DstImageType = typename Internal::ImageTypeWithElemType<ImageType, DstElemType>::type;
-                return DstImageType();
+        case Internal::halide_type_code(halide_type_float, 32):
+            return convert_image<DstElemType>(src.template as<float>());
+        case Internal::halide_type_code(halide_type_float, 64):
+            return convert_image<DstElemType>(src.template as<double>());
+        case Internal::halide_type_code(halide_type_int, 8):
+            return convert_image<DstElemType>(src.template as<int8_t>());
+        case Internal::halide_type_code(halide_type_int, 16):
+            return convert_image<DstElemType>(src.template as<int16_t>());
+        case Internal::halide_type_code(halide_type_int, 32):
+            return convert_image<DstElemType>(src.template as<int32_t>());
+        case Internal::halide_type_code(halide_type_int, 64):
+            return convert_image<DstElemType>(src.template as<int64_t>());
+        case Internal::halide_type_code(halide_type_uint, 1):
+            return convert_image<DstElemType>(src.template as<bool>());
+        case Internal::halide_type_code(halide_type_uint, 8):
+            return convert_image<DstElemType>(src.template as<uint8_t>());
+        case Internal::halide_type_code(halide_type_uint, 16):
+            return convert_image<DstElemType>(src.template as<uint16_t>());
+        case Internal::halide_type_code(halide_type_uint, 32):
+            return convert_image<DstElemType>(src.template as<uint32_t>());
+        case Internal::halide_type_code(halide_type_uint, 64):
+            return convert_image<DstElemType>(src.template as<uint64_t>());
+        default:
+            assert(false && "Unsupported type");
+            using DstImageType = typename Internal::ImageTypeWithElemType<ImageType, DstElemType>::type;
+            return DstImageType();
         }
     }
 
     // Convert an Image from one ElemType to another, where the src type
     // is statically known but the dst type is not
     // (e.g. Buffer<uint8_t> -> Buffer<>(halide_type_t)).
-    template <typename DstElemType = void,
-              typename ImageType,
-              typename std::enable_if<ImageType::has_static_halide_type && std::is_void<DstElemType>::value>::type * = nullptr>
+    template<typename DstElemType = void,
+             typename ImageType,
+             typename std::enable_if<ImageType::has_static_halide_type && std::is_void<DstElemType>::value>::type * = nullptr>
     static auto convert_image(const ImageType &src, const halide_type_t &dst_type) ->
-            typename Internal::ImageTypeWithElemType<ImageType, void>::type {
+        typename Internal::ImageTypeWithElemType<ImageType, void>::type {
         // The enable_if ensures this will never fire; this is here primarily
         // as documentation and a backstop against breakage.
         static_assert(ImageType::has_static_halide_type,
@@ -1484,42 +2099,42 @@ struct ImageTypeConversion {
         // Call the appropriate static-to-static conversion routine
         // based on the desired dst type.
         switch (Internal::halide_type_code((halide_type_code_t) dst_type.code, dst_type.bits)) {
-            case Internal::halide_type_code(halide_type_float, 32):
-                return convert_image<float>(src);
-            case Internal::halide_type_code(halide_type_float, 64):
-                return convert_image<double>(src);
-            case Internal::halide_type_code(halide_type_int, 8):
-                return convert_image<int8_t>(src);
-            case Internal::halide_type_code(halide_type_int, 16):
-                return convert_image<int16_t>(src);
-            case Internal::halide_type_code(halide_type_int, 32):
-                return convert_image<int32_t>(src);
-            case Internal::halide_type_code(halide_type_int, 64):
-                return convert_image<int64_t>(src);
-            case Internal::halide_type_code(halide_type_uint, 1):
-                return convert_image<bool>(src);
-            case Internal::halide_type_code(halide_type_uint, 8):
-                return convert_image<uint8_t>(src);
-            case Internal::halide_type_code(halide_type_uint, 16):
-                return convert_image<uint16_t>(src);
-            case Internal::halide_type_code(halide_type_uint, 32):
-                return convert_image<uint32_t>(src);
-            case Internal::halide_type_code(halide_type_uint, 64):
-                return convert_image<uint64_t>(src);
-            default:
-                assert(false && "Unsupported type");
-                return ImageType();
+        case Internal::halide_type_code(halide_type_float, 32):
+            return convert_image<float>(src);
+        case Internal::halide_type_code(halide_type_float, 64):
+            return convert_image<double>(src);
+        case Internal::halide_type_code(halide_type_int, 8):
+            return convert_image<int8_t>(src);
+        case Internal::halide_type_code(halide_type_int, 16):
+            return convert_image<int16_t>(src);
+        case Internal::halide_type_code(halide_type_int, 32):
+            return convert_image<int32_t>(src);
+        case Internal::halide_type_code(halide_type_int, 64):
+            return convert_image<int64_t>(src);
+        case Internal::halide_type_code(halide_type_uint, 1):
+            return convert_image<bool>(src);
+        case Internal::halide_type_code(halide_type_uint, 8):
+            return convert_image<uint8_t>(src);
+        case Internal::halide_type_code(halide_type_uint, 16):
+            return convert_image<uint16_t>(src);
+        case Internal::halide_type_code(halide_type_uint, 32):
+            return convert_image<uint32_t>(src);
+        case Internal::halide_type_code(halide_type_uint, 64):
+            return convert_image<uint64_t>(src);
+        default:
+            assert(false && "Unsupported type");
+            return ImageType();
         }
     }
 
     // Convert an Image from one ElemType to another, where neither src type
     // nor dst type are statically known
     // (e.g. Buffer<>(halide_type_t) -> Buffer<>(halide_type_t)).
-    template <typename DstElemType = void,
-              typename ImageType,
-              typename std::enable_if<!ImageType::has_static_halide_type && std::is_void<DstElemType>::value>::type * = nullptr>
+    template<typename DstElemType = void,
+             typename ImageType,
+             typename std::enable_if<!ImageType::has_static_halide_type && std::is_void<DstElemType>::value>::type * = nullptr>
     static auto convert_image(const ImageType &src, const halide_type_t &dst_type) ->
-            typename Internal::ImageTypeWithElemType<ImageType, void>::type {
+        typename Internal::ImageTypeWithElemType<ImageType, void>::type {
         // The enable_if ensures this will never fire; this is here primarily
         // as documentation and a backstop against breakage.
         static_assert(!ImageType::has_static_halide_type,
@@ -1531,31 +2146,31 @@ struct ImageTypeConversion {
         // matrix of code.)
         const halide_type_t src_type = src.type();
         switch (Internal::halide_type_code((halide_type_code_t) src_type.code, src_type.bits)) {
-            case Internal::halide_type_code(halide_type_float, 32):
-                return convert_image(src.template as<float>(), dst_type);
-            case Internal::halide_type_code(halide_type_float, 64):
-                return convert_image(src.template as<double>(), dst_type);
-            case Internal::halide_type_code(halide_type_int, 8):
-                return convert_image(src.template as<int8_t>(), dst_type);
-            case Internal::halide_type_code(halide_type_int, 16):
-                return convert_image(src.template as<int16_t>(), dst_type);
-            case Internal::halide_type_code(halide_type_int, 32):
-                return convert_image(src.template as<int32_t>(), dst_type);
-            case Internal::halide_type_code(halide_type_int, 64):
-                return convert_image(src.template as<int64_t>(), dst_type);
-            case Internal::halide_type_code(halide_type_uint, 1):
-                return convert_image(src.template as<bool>(), dst_type);
-            case Internal::halide_type_code(halide_type_uint, 8):
-                return convert_image(src.template as<uint8_t>(), dst_type);
-            case Internal::halide_type_code(halide_type_uint, 16):
-                return convert_image(src.template as<uint16_t>(), dst_type);
-            case Internal::halide_type_code(halide_type_uint, 32):
-                return convert_image(src.template as<uint32_t>(), dst_type);
-            case Internal::halide_type_code(halide_type_uint, 64):
-                return convert_image(src.template as<uint64_t>(), dst_type);
-            default:
-                assert(false && "Unsupported type");
-                return ImageType();
+        case Internal::halide_type_code(halide_type_float, 32):
+            return convert_image(src.template as<float>(), dst_type);
+        case Internal::halide_type_code(halide_type_float, 64):
+            return convert_image(src.template as<double>(), dst_type);
+        case Internal::halide_type_code(halide_type_int, 8):
+            return convert_image(src.template as<int8_t>(), dst_type);
+        case Internal::halide_type_code(halide_type_int, 16):
+            return convert_image(src.template as<int16_t>(), dst_type);
+        case Internal::halide_type_code(halide_type_int, 32):
+            return convert_image(src.template as<int32_t>(), dst_type);
+        case Internal::halide_type_code(halide_type_int, 64):
+            return convert_image(src.template as<int64_t>(), dst_type);
+        case Internal::halide_type_code(halide_type_uint, 1):
+            return convert_image(src.template as<bool>(), dst_type);
+        case Internal::halide_type_code(halide_type_uint, 8):
+            return convert_image(src.template as<uint8_t>(), dst_type);
+        case Internal::halide_type_code(halide_type_uint, 16):
+            return convert_image(src.template as<uint16_t>(), dst_type);
+        case Internal::halide_type_code(halide_type_uint, 32):
+            return convert_image(src.template as<uint32_t>(), dst_type);
+        case Internal::halide_type_code(halide_type_uint, 64):
+            return convert_image(src.template as<uint64_t>(), dst_type);
+        default:
+            assert(false && "Unsupported type");
+            return ImageType();
         }
     }
 };
@@ -1599,7 +2214,7 @@ bool save(ImageType &im, const std::string &filename) {
     if (!Internal::find_imageio<DynamicImageType, check>(filename, &imageio)) {
         return false;
     }
-    if (!check(imageio.query().count({im.type(), im.dimensions()}) > 0, "Image cannot be saved in this format")) {
+    if (!check(imageio.query().count({ im.type(), im.dimensions() }) > 0, "Image cannot be saved in this format")) {
         return false;
     }
 
@@ -1634,7 +2249,9 @@ bool save_query(const std::string &filename, std::set<FormatInfo> *info) {
 // dimensions of of the image on the LHS, a runtime error will occur.
 class load_image {
 public:
-    load_image(const std::string &f) : filename(f) {}
+    load_image(const std::string &f)
+        : filename(f) {
+    }
 
     template<typename ImageType>
     operator ImageType() {
@@ -1645,14 +2262,16 @@ public:
     }
 
 private:
-  const std::string filename;
+    const std::string filename;
 };
 
 // Like load_image, but quietly convert the loaded image to the type of the LHS
 // if necessary, discarding information if necessary.
 class load_and_convert_image {
 public:
-    load_and_convert_image(const std::string &f) : filename(f) {}
+    load_and_convert_image(const std::string &f)
+        : filename(f) {
+    }
 
     template<typename ImageType>
     inline operator ImageType() {
@@ -1668,7 +2287,7 @@ public:
     }
 
 private:
-  const std::string filename;
+    const std::string filename;
 };
 
 // Fancy wrapper to call save() with CheckFail; this allows you to simply use

@@ -77,9 +77,10 @@ cc_library(
 cc_library(
     name = "halide_image_io",
     hdrs = ["tools/halide_image_io.h"],
-    # TODO: include references to PNG and JPEG libraries;
-    # for now, just disable these two
+    # TODO: include references to BPG, PNG, and JPEG libraries;
+    # for now, just disable these three
     defines = [
+        "HALIDE_NO_BPG",
         "HALIDE_NO_JPEG",
         "HALIDE_NO_PNG",
     ],
