@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.1.3)
 
 # Add the include paths and link dependencies for halide_image_io.
 function(halide_use_image_io TARGET)
-  foreach(PKG PNG JPEG)
+  foreach(PKG PNG JPEG BPG)
     find_package(${PKG} QUIET)
     if(${PKG}_FOUND)
       target_compile_definitions(${TARGET} PRIVATE ${${PKG}_DEFINITIONS})
