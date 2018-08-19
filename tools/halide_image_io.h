@@ -792,8 +792,9 @@ void write_big_endian_image(const ImageType &im, uint8_t *dst[]) {
     if (im_typed.dimensions() > 2) {
         const int cmin = im_typed.dim(2).min();
         const int cmax = im_typed.dim(2).max();
+        const int cmap[] = {2, 0, 1, 3}; //BPG only, map R,G,B,{A} to Cr,Y,Cb,{A}
         for (int c = cmin; c <= cmax; c++) {
-            DstElemType *p = reinterpret_cast<DstElemType *>(dst[c]);
+            DstElemType *p = reinterpret_cast<DstElemType *>(dst[cmap[c]]);
             for (int y = ymin; y <= ymax; y++) {
                 for (int x = xmin; x <= xmax; x++) {
                     write_big_endian<SrcElemType, DstElemType>(im_typed(x, y, c), p);
