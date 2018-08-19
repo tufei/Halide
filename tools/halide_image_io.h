@@ -783,7 +783,7 @@ void write_big_endian_row(const ImageType &im, int y, uint8_t *dst) {
 // Copy an image into a byte buffer.
 // Multibyte elements are written in big-endian layout.
 template<typename SrcElemType, typename DstElemType, typename ImageType>
-void write_big_endian_image(const ImageType &im, uint8_t *dst[]) {
+void write_big_endian_image(const ImageType &im, uint8_t *dst[], int pitch[]) {
     auto im_typed = im.template as<SrcElemType>();
     const int xmin = im_typed.dim(0).min();
     const int xmax = im_typed.dim(0).max();
@@ -794,8 +794,8 @@ void write_big_endian_image(const ImageType &im, uint8_t *dst[]) {
         const int cmax = im_typed.dim(2).max();
         const int cmap[] = {2, 0, 1, 3}; //BPG only, map R,G,B,{A} to Cr,Y,Cb,{A}
         for (int c = cmin; c <= cmax; c++) {
-            DstElemType *p = reinterpret_cast<DstElemType *>(dst[cmap[c]]);
             for (int y = ymin; y <= ymax; y++) {
+                DstElemType *p = reinterpret_cast<DstElemType *>(dst[cmap[c]] + y * pitch[cmap[c]]);
                 for (int x = xmin; x <= xmax; x++) {
                     write_big_endian<SrcElemType, DstElemType>(im_typed(x, y, c), p);
                     p++;
@@ -803,8 +803,8 @@ void write_big_endian_image(const ImageType &im, uint8_t *dst[]) {
             }
         }
     } else {
-        DstElemType *p = reinterpret_cast<DstElemType *>(dst[0]);
         for (int y = ymin; y <= ymax; y++) {
+            DstElemType *p = reinterpret_cast<DstElemType *>(dst[0] + y * pitch[0]);
             for (int x = xmin; x <= xmax; x++) {
                 write_big_endian<SrcElemType, DstElemType>(im_typed(x, y), p);
                 p++;
@@ -1372,7 +1372,7 @@ bool save_bpg(ImageType &im, const std::string &filename) {
         img->data[i] = reinterpret_cast<uint8_t *>(malloc(((height + 15) & ~0x0F) * img->linesize[i]));
     }
 
-    copy_from_image(im, img->data);
+    copy_from_image(im, img->data, img->linesize);
 
     int (*pf)(void *, const uint8_t *, int){
         [](void *p, const uint8_t *buf, int len) {
