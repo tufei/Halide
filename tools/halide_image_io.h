@@ -1352,7 +1352,7 @@ bool save_bpg(ImageType &im, const std::string &filename) {
     img->h = height;
     img->format = params->preferred_chroma_format;
     img->has_alpha = 2 == channels || 4 == channels;
-    img->color_space = BPG_CS_RGB;
+    img->color_space = 2 >= channels ? BPG_CS_YCbCr : BPG_CS_RGB;
     img->bit_depth = static_cast<uint8_t>(im.type().bits());
     img->pixel_shift = 1;
     img->c_h_phase = 1;
