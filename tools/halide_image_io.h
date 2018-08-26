@@ -1305,9 +1305,7 @@ bool load_bpg(const std::string &filename, ImageType *im) {
 inline const std::set<FormatInfo> &query_bpg() {
     static std::set<FormatInfo> info = {
         { halide_type_t(halide_type_uint, 8), 2 },
-        { halide_type_t(halide_type_uint, 16), 2 },
         { halide_type_t(halide_type_uint, 8), 3 },
-        { halide_type_t(halide_type_uint, 16), 3 },
     };
     return info;
 }
@@ -1318,6 +1316,7 @@ bool save_bpg(ImageType &im, const std::string &filename) {
 
     im.copy_to_host();
 
+    const halide_type_t im_type = im.type();
     const int width = im.width();
     const int height = im.height();
     const int channels = im.channels();
@@ -1353,7 +1352,7 @@ bool save_bpg(ImageType &im, const std::string &filename) {
     img->format = params->preferred_chroma_format;
     img->has_alpha = 2 == channels || 4 == channels;
     img->color_space = 2 >= channels ? BPG_CS_YCbCr : BPG_CS_RGB;
-    img->bit_depth = static_cast<uint8_t>(im.type().bits());
+    img->bit_depth = static_cast<uint8_t>(im_type.bits);
     img->pixel_shift = 1;
     img->c_h_phase = 1;
 

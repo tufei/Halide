@@ -24,6 +24,10 @@ using namespace Halide;
 #include "halide_image_io.h"
 using namespace Halide::Tools;
 
+#ifdef _WIN32
+#define INT32 NOT_TO_BE_USED
+#endif
+
 // Include a clock to do performance testing.
 #include "clock.h"
 
