@@ -428,7 +428,7 @@ void write_big_endian_row(const ImageType &im, int y, uint8_t *dst) {
 // Multibyte elements are written in big-endian layout.
 template<typename SrcElemType, typename DstElemType, typename ImageType>
 void write_big_endian_image(const ImageType &im, uint8_t *dst[], int pitch[]) {
-    auto im_typed = im.template as<SrcElemType>();
+    auto im_typed = im.template as<const SrcElemType>();
     const int xmin = im_typed.dim(0).min();
     const int xmax = im_typed.dim(0).max();
     const int ymin = im_typed.dim(1).min();
