@@ -2220,19 +2220,19 @@ bool find_imageio(const std::string &filename, ImageIO<ImageType, check> *result
 
     const std::map<std::string, ImageIO<ImageType, check>> m = {
 #ifndef HALIDE_NO_JPEG
-        { "jpeg", { load_jpg<ImageType, check>, save_jpg<ImageType, check>, query_jpg } },
-        { "jpg", { load_jpg<ImageType, check>, save_jpg<ImageType, check>, query_jpg } },
+        {"jpeg", {load_jpg<ImageType, check>, save_jpg<ImageType, check>, query_jpg}},
+        {"jpg", {load_jpg<ImageType, check>, save_jpg<ImageType, check>, query_jpg}},
 #endif
-        { "pgm", { load_pgm<ImageType, check>, save_pgm<ImageType, check>, query_pgm } },
+        {"pgm", {load_pgm<ImageType, check>, save_pgm<ImageType, check>, query_pgm}},
 #ifndef HALIDE_NO_PNG
-        { "png", { load_png<ImageType, check>, save_png<ImageType, check>, query_png } },
+        {"png", {load_png<ImageType, check>, save_png<ImageType, check>, query_png}},
 #endif
 #ifndef HALIDE_NO_BPG
-        { "bpg", { load_bpg<ImageType, check>, save_bpg<ImageType, check>, query_bpg } },
+        {"bpg", {load_bpg<ImageType, check>, save_bpg<ImageType, check>, query_bpg}},
 #endif
-        { "ppm", { load_ppm<ImageType, check>, save_ppm<ImageType, check>, query_ppm } },
-        { "tmp", { load_tmp<ImageType, check>, save_tmp<ImageType, check>, query_tmp } },
-        { "mat", { load_mat<ImageType, check>, save_mat<ImageType, check>, query_mat } }
+        {"ppm", {load_ppm<ImageType, check>, save_ppm<ImageType, check>, query_ppm}},
+        {"tmp", {load_tmp<ImageType, check>, save_tmp<ImageType, check>, query_tmp}},
+        {"mat", {load_mat<ImageType, check>, save_mat<ImageType, check>, query_mat}},
         {"tiff", {load_tiff<ImageType, check>, save_tiff<ConstImageType, check>, query_tiff}},
     };
     std::string ext = Internal::get_lowercase_extension(filename);
