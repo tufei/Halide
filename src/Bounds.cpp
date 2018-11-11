@@ -116,19 +116,19 @@ private:
 
     using IRVisitor::visit;
 
-    void visit(const IntImm *op) {
+    void visit(const IntImm *op) override {
         interval = Interval::single_point(op);
     }
 
-    void visit(const UIntImm *op) {
+    void visit(const UIntImm *op) override {
         interval = Interval::single_point(op);
     }
 
-    void visit(const FloatImm *op) {
+    void visit(const FloatImm *op) override {
         interval = Interval::single_point(op);
     }
 
-    void visit(const Cast *op) {
+    void visit(const Cast *op) override {
         op->value.accept(this);
         Interval a = interval;
 
@@ -204,7 +204,7 @@ private:
         }
     }
 
-    void visit(const Variable *op) {
+    void visit(const Variable *op) override {
         if (const_bound) {
             bounds_of_type(op->type);
             if (scope.contains(op->name)) {
@@ -241,7 +241,7 @@ private:
         }
     }
 
-    void visit(const Add *op) {
+    void visit(const Add *op) override {
         op->a.accept(this);
         Interval a = interval;
         op->b.accept(this);
@@ -280,7 +280,7 @@ private:
         }
     }
 
-    void visit(const Sub *op) {
+    void visit(const Sub *op) override {
         op->a.accept(this);
         Interval a = interval;
         op->b.accept(this);
@@ -326,7 +326,7 @@ private:
         }
     }
 
-    void visit(const Mul *op) {
+    void visit(const Mul *op) override {
         op->a.accept(this);
         Interval a = interval;
 
@@ -393,7 +393,7 @@ private:
         }
     }
 
-    void visit(const Div *op) {
+    void visit(const Div *op) override {
         op->a.accept(this);
         Interval a = interval;
 
@@ -446,7 +446,7 @@ private:
         }
     }
 
-    void visit(const Mod *op) {
+    void visit(const Mod *op) override {
         op->a.accept(this);
         Interval a = interval;
 
@@ -486,7 +486,7 @@ private:
         }
     }
 
-    void visit(const Min *op) {
+    void visit(const Min *op) override {
         op->a.accept(this);
         Interval a = interval;
 
@@ -502,7 +502,7 @@ private:
     }
 
 
-    void visit(const Max *op) {
+    void visit(const Max *op) override {
         op->a.accept(this);
         Interval a = interval;
 
@@ -544,23 +544,23 @@ private:
         interval.max = Cmp::make(a.min, b.max);
     }
 
-    void visit(const LT *op) {
+    void visit(const LT *op) override {
         visit_compare<LT>(op->a, op->b);
     }
 
-    void visit(const LE *op) {
+    void visit(const LE *op) override {
         visit_compare<LE>(op->a, op->b);
     }
 
-    void visit(const GT *op) {
+    void visit(const GT *op) override {
         visit_compare<LT>(op->b, op->a);
     }
 
-    void visit(const GE *op) {
+    void visit(const GE *op) override {
         visit_compare<LE>(op->b, op->a);
     }
 
-    void visit(const EQ *op) {
+    void visit(const EQ *op) override {
         op->a.accept(this);
         Interval a = interval;
 
@@ -583,7 +583,7 @@ private:
         }
     }
 
-    void visit(const NE *op) {
+    void visit(const NE *op) override {
         op->a.accept(this);
         Interval a = interval;
 
@@ -614,7 +614,7 @@ private:
         return a && b;
     }
 
-    void visit(const And *op) {
+    void visit(const And *op) override {
         op->a.accept(this);
         Interval a = interval;
 
@@ -640,7 +640,7 @@ private:
         return a || b;
     }
 
-    void visit(const Or *op) {
+    void visit(const Or *op) override {
         op->a.accept(this);
         Interval a = interval;
 
@@ -664,7 +664,7 @@ private:
         return !e;
     }
 
-    void visit(const Not *op) {
+    void visit(const Not *op) override {
         op->a.accept(this);
         Interval a = interval;
 
@@ -678,7 +678,7 @@ private:
         }
     }
 
-    void visit(const Select *op) {
+    void visit(const Select *op) override {
         op->true_value.accept(this);
         if (!interval.is_bounded()) {
             // Uses interval produced by op->true_value which might be half bound.
@@ -765,7 +765,7 @@ private:
         }
     }
 
-    void visit(const Load *op) {
+    void visit(const Load *op) override {
         op->index.accept(this);
         if (!const_bound && interval.is_single_point() && is_one(op->predicate)) {
             // If the index is const and it is not a predicated load,
@@ -780,7 +780,7 @@ private:
         }
     }
 
-    void visit(const Ramp *op) {
+    void visit(const Ramp *op) override {
         // Treat the ramp lane as a free variable
         string var_name = unique_name('t');
         Expr var = Variable::make(op->base.type(), var_name);
@@ -790,11 +790,11 @@ private:
         lane.accept(this);
     }
 
-    void visit(const Broadcast *op) {
+    void visit(const Broadcast *op) override {
         op->value.accept(this);
     }
 
-    void visit(const Call *op) {
+    void visit(const Call *op) override {
         // Using the strict_float feature flag wraps a strict_float()
         // call around every Expr that is of type float, so it's easy
         // to get nestings that are many levels deep; the bounds of this
@@ -930,7 +930,7 @@ private:
         }
     }
 
-    void visit(const Let *op) {
+    void visit(const Let *op) override {
         op->value.accept(this);
         Interval val = interval;
 
@@ -985,7 +985,7 @@ private:
         }
     }
 
-    void visit(const Shuffle *op) {
+    void visit(const Shuffle *op) override {
         Interval result = Interval::nothing();
         for (Expr i : op->vectors) {
             i.accept(this);
@@ -994,39 +994,39 @@ private:
         interval = result;
     }
 
-    void visit(const LetStmt *) {
+    void visit(const LetStmt *) override {
         internal_error << "Bounds of statement\n";
     }
 
-    void visit(const AssertStmt *) {
+    void visit(const AssertStmt *) override {
         internal_error << "Bounds of statement\n";
     }
 
-    void visit(const ProducerConsumer *) {
+    void visit(const ProducerConsumer *) override {
         internal_error << "Bounds of statement\n";
     }
 
-    void visit(const For *) {
+    void visit(const For *) override {
         internal_error << "Bounds of statement\n";
     }
 
-    void visit(const Store *) {
+    void visit(const Store *) override {
         internal_error << "Bounds of statement\n";
     }
 
-    void visit(const Provide *) {
+    void visit(const Provide *) override {
         internal_error << "Bounds of statement\n";
     }
 
-    void visit(const Allocate *) {
+    void visit(const Allocate *) override {
         internal_error << "Bounds of statement\n";
     }
 
-    void visit(const Realize *) {
+    void visit(const Realize *) override {
         internal_error << "Bounds of statement\n";
     }
 
-    void visit(const Block *) {
+    void visit(const Block *) override {
         internal_error << "Bounds of statement\n";
     }
 };
@@ -1241,7 +1241,7 @@ private:
     using IRVisitor::visit;
     int innermost_depth = -1;
 
-    void visit(const Variable *op) {
+    void visit(const Variable *op) override {
         if (vars_depth.contains(op->name)) {
             int depth = vars_depth.get(op->name);
             if (depth > innermost_depth) {
@@ -1314,7 +1314,7 @@ public:
 private:
     using IRGraphVisitor::visit;
 
-    void visit(const Variable *op) {
+    void visit(const Variable *op) override {
         if (op->name != skipped_var) {
             vars.insert(op->name);
         }
@@ -1368,7 +1368,44 @@ private:
 
     using IRGraphVisitor::visit;
 
-    void visit(const Call *op) {
+    bool box_from_extended_crop(Expr e, Box &b) {
+        const Call *call_expr = e.as<Call>();
+        if (call_expr != nullptr) {
+            if (call_expr->name == Call::buffer_crop) {
+                internal_assert(call_expr->args.size() == 5) << "Call::buffer_crop call with unexpected number of arguments.\n";
+                const Variable *in_buf = call_expr->args[2].as<Variable>();
+                const Call *mins_struct = call_expr->args[3].as<Call>();
+                const Call *extents_struct = call_expr->args[4].as<Call>();
+                // Ignore crops that apply to a different buffer than the one being looked for.
+                if (in_buf != nullptr && (in_buf->name == (func + ".buffer"))) {
+                    internal_assert(mins_struct != nullptr && extents_struct != nullptr &&
+                                    mins_struct->name == Call::make_struct &&
+                                    extents_struct->name == Call::make_struct) << "BoxesTouched::box_from_extended_crop -- unexpected buffer_crop form.\n";
+                    b.resize(mins_struct->args.size());
+                    b.used = const_true();
+                    for (size_t i = 0; i < mins_struct->args.size(); i++) {
+                        Interval min_interval = bounds_of_expr_in_scope(mins_struct->args[i], scope, func_bounds);
+                        Interval max_interval = bounds_of_expr_in_scope(mins_struct->args[i] + extents_struct->args[i] - 1, scope, func_bounds);
+                        b[i] = Interval(min_interval.min, max_interval.max);
+                    }
+                    return true;
+                }
+            } else if (call_expr->name == Call::buffer_set_bounds) {
+                internal_assert(call_expr->args.size() == 4) << "Call::buffer_set_bounds call with unexpected number of arguments.\n";
+                const IntImm *dim = call_expr->args[1].as<IntImm>();
+                if (dim != nullptr && box_from_extended_crop(call_expr->args[0], b)) {
+                    internal_assert(dim->value >= 0 && dim->value < (int64_t)b.size()) << "box_from_extended_crop setting bounds for out of range dim.\n";
+                    Interval min_interval = bounds_of_expr_in_scope(call_expr->args[2], scope, func_bounds);
+                    Interval max_interval = bounds_of_expr_in_scope(call_expr->args[2] + call_expr->args[3] - 1, scope, func_bounds);
+                    b[dim->value] = Interval(min_interval.min, max_interval.max);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    void visit(const Call *op) override {
         if (consider_calls) {
             if (op->is_intrinsic(Call::if_then_else)) {
                 assert(op->args.size() == 3);
@@ -1399,36 +1436,31 @@ private:
             }
         }
 
-        if (op->is_extern() && in_producer) {
+        if (op->is_extern() && (in_producer || consider_calls)) {
             if (op->name == "halide_buffer_copy") {
                 // Call doesn't yet have user_context inserted, so size is 3.
                 internal_assert(op->args.size() == 3) << "Unexpected arg list size for halide_buffer_copy\n";
-                if (equal(op->args[1], make_device_interface_call(DeviceAPI::Host))) {
-                    const Variable *var = op->args[2].as<Variable>();
+                for (int i = 0; i < 2; i++) {
+                    // If considering calls, merge in the source bounds.
+                    // If considering provides, merge in the destination bounds.
+                    int var_index;
+                    if (i == 0 && consider_calls) {
+                        var_index = 0;
+                    } else if (i == 1 && consider_provides && in_producer) {
+                        var_index = 2;
+                    } else {
+                        continue;
+                    }
+                    
+                    const Variable *var = op->args[var_index].as<Variable>();
                     if (var != nullptr && var->type == type_of<halide_buffer_t *>()) {
                         if (func.empty() || starts_with(var->name, func)) {
                             const auto iter = buffer_lets.find(var->name);
                             if (iter != buffer_lets.end()) {
-                                const Call *crop_call = iter->second.as<Call>();
-                                if (crop_call != nullptr && crop_call->name == Call::buffer_crop && crop_call->args.size() == 5) {
-                                    const Variable *in_buf = crop_call->args[2].as<Variable>();
-                                    const Call *mins_struct = crop_call->args[3].as<Call>();
-                                    const Call *extents_struct = crop_call->args[4].as<Call>();
-                                    if (in_buf != nullptr && mins_struct != nullptr && extents_struct != nullptr &&
-                                        (in_buf->name == (func + ".buffer")) &&
-                                        mins_struct->name == Call::make_struct && extents_struct->name == Call::make_struct) {
-                                        Box b(mins_struct->args.size());
-                                        b.used = const_true();
-                                        for (size_t i = 0; i < mins_struct->args.size(); i++) {
-                                            Interval min_interval = bounds_of_expr_in_scope(mins_struct->args[i], scope, func_bounds);
-                                            Interval max_interval = bounds_of_expr_in_scope(mins_struct->args[i] + extents_struct->args[i] - 1, scope, func_bounds);
-                                            b[i] = Interval(min_interval.min, max_interval.max);
-                                        }
-                                        merge_boxes(boxes[func], b);
-                                    }
+                                Box b;
+                                if (box_from_extended_crop(iter->second, b)) {
+                                    merge_boxes(boxes[func], b);
                                 }
-
-
                             }
                         }
                     }
@@ -1440,7 +1472,7 @@ private:
     class CountVars : public IRVisitor {
         using IRVisitor::visit;
 
-        void visit(const Variable *var) {
+        void visit(const Variable *var) override {
             count++;
         }
     public:
@@ -1486,12 +1518,6 @@ private:
 
     template<typename LetOrLetStmt>
     void visit_let(const LetOrLetStmt *op) {
-        std::string named_buffer_let;
-        if (op->value.type() == type_of<struct halide_buffer_t *>()) {
-            named_buffer_let = op->name;
-            buffer_lets[named_buffer_let] = op->value;
-        }
-
         using is_let_stmt = typename std::is_same<LetOrLetStmt, LetStmt>;
 
         // LetStmts can be deeply stacked, and this visitor is called
@@ -1514,6 +1540,10 @@ private:
             frames.emplace_back(op);
             Frame &f = frames.back();
             push_var(op->name);
+
+            if (op->value.type() == type_of<struct halide_buffer_t *>()) {
+                buffer_lets[op->name] = op->value;
+            }
 
             if (is_let_stmt::value) {
                 f.vi = get_var_instance(op->name);
@@ -1570,6 +1600,10 @@ private:
             // Pop the value bounds
             scope.pop(it->op->name);
 
+            if (it->op->value.type() == type_of<struct halide_buffer_t *>()) {
+                buffer_lets.erase(it->op->name);
+            }
+
             if (!it->min_name.empty()) {
                 // We made up new names for the bounds of the
                 // value, and need to rewrap any boxes we're
@@ -1621,17 +1655,13 @@ private:
 
             pop_var(it->op->name);
         }
-
-        if (!named_buffer_let.empty()) {
-            buffer_lets.erase(named_buffer_let);
-        }
     }
 
-    void visit(const Let *op) {
+    void visit(const Let *op) override {
         visit_let(op);
     }
 
-    void visit(const LetStmt *op) {
+    void visit(const LetStmt *op) override {
         visit_let(op);
     }
 
@@ -1710,7 +1740,7 @@ private:
     vector<const Variable *> find_free_vars(Expr e) {
         class FindFreeVars : public IRVisitor {
             using IRVisitor::visit;
-            void visit(const Variable *op) {
+            void visit(const Variable *op) override {
                 if (scope.contains(op->name)) {
                     result.push_back(op);
                 }
@@ -1724,7 +1754,7 @@ private:
         return finder.result;
     }
 
-    void visit(const IfThenElse *op) {
+    void visit(const IfThenElse *op) override {
         op->condition.accept(this);
         if (expr_uses_vars(op->condition, scope)) {
             if (!op->else_case.defined() || is_no_op(op->else_case)) {
@@ -1874,7 +1904,7 @@ private:
         }
     }
 
-    void visit(const For *op) {
+    void visit(const For *op) override {
         if (consider_calls) {
             op->min.accept(this);
             op->extent.accept(this);
@@ -1903,7 +1933,7 @@ private:
         pop_var(op->name);
     }
 
-    void visit(const Provide *op) {
+    void visit(const Provide *op) override {
         if (consider_provides) {
             if (op->name == func || func.empty()) {
                 Box b(op->args.size());
@@ -1924,7 +1954,7 @@ private:
         }
     }
 
-    void visit(const ProducerConsumer *op) {
+    void visit(const ProducerConsumer *op) override {
         if (op->is_producer && (op->name == func || func.empty())) {
             ScopedValue<bool> save_in_producer(in_producer, true);
             IRGraphVisitor::visit(op);
@@ -1936,6 +1966,65 @@ private:
 
 map<string, Box> boxes_touched(Expr e, Stmt s, bool consider_calls, bool consider_provides,
                                string fn, const Scope<Interval> &scope, const FuncValueBounds &fb) {
+    if (!fn.empty() && s.defined()) {
+        // Filter things down to the relevant sub-Stmts, so we don't spend a
+        // long time reasoning about lets and ifs that don't surround an
+        // access to the buffer in question.
+
+        class Filter : public IRMutator2 {
+            using IRMutator2::visit;
+            using IRMutator2::mutate;
+
+            bool relevant = false;
+
+            Expr visit(const Call *op) override {
+                if (op->name == fn) {
+                    relevant = true;
+                    return op;
+                } else {
+                    return IRMutator2::visit(op);
+                }
+            }
+
+            Stmt visit(const Provide *op) override {
+                if (op->name == fn) {
+                    relevant = true;
+                    return op;
+                } else {
+                    return IRMutator2::visit(op);
+                }
+            }
+
+            Expr visit(const Variable *op) override {
+                if (op->name == fn_buffer) {
+                    relevant = true;
+                }
+                return op;
+            }
+
+        public:
+
+            Stmt mutate(const Stmt &s) override {
+                bool old = relevant;
+                relevant = false;
+                Stmt s_new = IRMutator2::mutate(s);
+                if (!relevant) {
+                    relevant = old;
+                    return no_op;
+                } else {
+                    return s_new;
+                }
+            }
+
+            const string &fn;
+            const string fn_buffer;
+            Stmt no_op;
+            Filter(const string &fn) : fn(fn), fn_buffer(fn + ".buffer"), no_op(Evaluate::make(0)) {}
+        } filter(fn);
+
+        s = filter.mutate(s);
+    }
+
     // Move the innermost vars in an IfThenElse's condition as far to the left
     // as possible, so that BoxesTouched can prune the variable scope tighter
     // when encountering the IfThenElse.

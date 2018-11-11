@@ -177,7 +177,7 @@ public:
 
     HalideJITMemoryManager(const std::vector<JITModule> &modules) : modules(modules) {}
 
-    virtual uint64_t getSymbolAddress(const std::string &name) override {
+    uint64_t getSymbolAddress(const std::string &name) override {
         for (size_t i = 0; i < modules.size(); i++) {
             const JITModule &m = modules[i];
             std::map<std::string, JITModule::Symbol>::const_iterator iter = m.exports().find(name);
@@ -191,12 +191,13 @@ public:
         return SectionMemoryManager::getSymbolAddress(name);
     }
 
-    virtual uint8_t *allocateCodeSection(uintptr_t size, unsigned alignment, unsigned section_id, StringRef section_name) override {
+    uint8_t *allocateCodeSection(uintptr_t size, unsigned alignment, unsigned section_id, StringRef section_name) override {
         uint8_t *result = SectionMemoryManager::allocateCodeSection(size, alignment, section_id, section_name);
         code_pages.push_back({result, size});
         return result;
     }
 
+#if LLVM_VERSION < 70
     void work_around_llvm_bugs() {
 
         for (auto p : code_pages) {
@@ -231,6 +232,8 @@ public:
 #endif
         }
     }
+#endif
+
 };
 
 }
@@ -332,7 +335,9 @@ void JITModule::compile_module(std::unique_ptr<llvm::Module> m, const string &fu
 
     debug(2) << "Finalizing object\n";
     ee->finalizeObject();
+#if LLVM_VERSION < 70
     memory_manager->work_around_llvm_bugs();
+#endif
 
     // Do any target-specific post-compilation module meddling
     for (size_t i = 0; i < listeners.size(); i++) {
