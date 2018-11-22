@@ -221,6 +221,8 @@ else()
   add_compile_options(/wd4503)  # disable "decorated name length exceeded, name was truncated"
   add_compile_options(/wd4267)  # disable "conversion from 'size_t' to 'int', possible loss of data"
   add_compile_options(/wd4800)  # forcing value to bool 'true' or 'false' (performance warning)
+  add_compile_options(-D_ALLOW_ITERATOR_DEBUG_LEVEL_MISMATCH)
+  add_compile_options(-D_ALLOW_RUNTIME_LIBRARY_MISMATCH)
   if (WARNINGS_AS_ERRORS)
     add_compile_options(/WX)
   endif()
