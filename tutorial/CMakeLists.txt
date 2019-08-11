@@ -7,7 +7,7 @@ include_directories("${CMAKE_BINARY_DIR}/tools")
 # when showing a demonstration of a computation in C code.
 check_cxx_compiler_flag("-Wno-unused-but-set-variable" SUPPORT_NO_UNUSED_BUT_SET_VARIABLE)
 
-file(GLOB IMAGES RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/images" "${CMAKE_CURRENT_SOURCE_DIR}/images/*.png")
+file(GLOB IMAGES RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/images" "${CMAKE_CURRENT_SOURCE_DIR}/images/*.png" "${CMAKE_CURRENT_SOURCE_DIR}/images/*.bpg")
 file(MAKE_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/images")
 foreach(FILE ${IMAGES})
   configure_file("${CMAKE_CURRENT_SOURCE_DIR}/images/${FILE}" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/images/" COPYONLY)

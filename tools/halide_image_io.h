@@ -912,7 +912,7 @@ bool load_bpg(const std::string &filename, ImageType *im) {
     }
 
     BPGDecoderOutputFormat output_format;
-    BPGColorSpaceEnum color_space = static_cast<BPGColorSpaceEnum>(info.color_space);
+    //BPGColorSpaceEnum color_space = static_cast<BPGColorSpaceEnum>(info.color_space);
     BPGImageFormatEnum image_format = static_cast<BPGImageFormatEnum>(info.format);
     const int width = info.width;
     const int height = info.height;
