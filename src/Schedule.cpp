@@ -41,7 +41,7 @@ struct LoopLevelContents {
 };
 
 template<>
-RefCount &ref_count<LoopLevelContents>(const LoopLevelContents *p) {
+RefCount &ref_count<LoopLevelContents>(const LoopLevelContents *p) noexcept {
     return p->ref_count;
 }
 
@@ -219,8 +219,8 @@ struct FuncScheduleContents {
         store_level(LoopLevel::inlined()), compute_level(LoopLevel::inlined()),
         memory_type(MemoryType::Auto), memoized(false), async(false) {};
 
-    // Pass an IRMutator2 through to all Exprs referenced in the FuncScheduleContents
-    void mutate(IRMutator2 *mutator) {
+    // Pass an IRMutator through to all Exprs referenced in the FuncScheduleContents
+    void mutate(IRMutator *mutator) {
         for (Bound &b : bounds) {
             if (b.min.defined()) {
                 b.min = mutator->mutate(b.min);
@@ -253,7 +253,7 @@ struct FuncScheduleContents {
 };
 
 template<>
-RefCount &ref_count<FuncScheduleContents>(const FuncScheduleContents *p) {
+RefCount &ref_count<FuncScheduleContents>(const FuncScheduleContents *p) noexcept {
     return p->ref_count;
 }
 
@@ -280,8 +280,8 @@ struct StageScheduleContents {
     StageScheduleContents() : fuse_level(FuseLoopLevel()), touched(false),
                               allow_race_conditions(false) {};
 
-    // Pass an IRMutator2 through to all Exprs referenced in the StageScheduleContents
-    void mutate(IRMutator2 *mutator) {
+    // Pass an IRMutator through to all Exprs referenced in the StageScheduleContents
+    void mutate(IRMutator *mutator) {
         for (ReductionVariable &r : rvars) {
             if (r.min.defined()) {
                 r.min = mutator->mutate(r.min);
@@ -304,7 +304,7 @@ struct StageScheduleContents {
 };
 
 template<>
-RefCount &ref_count<StageScheduleContents>(const StageScheduleContents *p) {
+RefCount &ref_count<StageScheduleContents>(const StageScheduleContents *p) noexcept {
     return p->ref_count;
 }
 
@@ -456,7 +456,7 @@ void FuncSchedule::accept(IRVisitor *visitor) const {
     }
 }
 
-void FuncSchedule::mutate(IRMutator2 *mutator) {
+void FuncSchedule::mutate(IRMutator *mutator) {
     if (contents.defined()) {
         contents->mutate(mutator);
     }
@@ -564,7 +564,7 @@ void StageSchedule::accept(IRVisitor *visitor) const {
     }
 }
 
-void StageSchedule::mutate(IRMutator2 *mutator) {
+void StageSchedule::mutate(IRMutator *mutator) {
     if (contents.defined()) {
         contents->mutate(mutator);
     }

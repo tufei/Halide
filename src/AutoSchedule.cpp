@@ -138,7 +138,7 @@ void check_estimates_on_outputs(const vector<Function> &outputs) {
             }
             user_assert(found && est.min.type().is_int() && est.extent.type().is_int())
                 << "Please provide a valid estimate for dimension "
-                << est.var << " of output \"" << out.name() << "\"\n";
+                << arg << " of output \"" << out.name() << "\"\n";
         }
     }
 }
@@ -328,13 +328,13 @@ void queue_func_regions(map<FStage, DimBounds> &fs_bounds,
                         if (b_iter->second.has_lower_bound() && b.second.has_lower_bound()) {
                             b_iter->second.min = simplify(Interval::make_min(b_iter->second.min, b.second.min));
                         } else {
-                            b_iter->second.min = Interval::neg_inf;
+                            b_iter->second.min = Interval::neg_inf();
                         }
 
                         if (b_iter->second.has_upper_bound() && b.second.has_upper_bound()) {
                             b_iter->second.max = simplify(Interval::make_max(b_iter->second.max, b.second.max));
                         } else {
-                            b_iter->second.max = Interval::pos_inf;
+                            b_iter->second.max = Interval::pos_inf();
                         }
                     }
                 }
@@ -775,9 +775,6 @@ struct AutoSchedule {
     }
 
     friend std::ostream& operator<<(std::ostream &stream, const AutoSchedule &sched) {
-        stream << "// Delete this line if not using Generator\n";
-        stream << "Pipeline pipeline = get_pipeline();\n\n";
-
         for (const auto &iter : sched.internal_vars) {
             if (iter.second.is_rvar) {
                 stream << "RVar ";
@@ -2386,28 +2383,13 @@ pair<VarOrRVar, VarOrRVar> Partitioner::split_dim(
     // care for the nested loops. If it is the update definition of the group output
     // however, we'd better make sure that no other member of the groups accesses
     // the inputs or outputs.
+
     TailStrategy strategy = TailStrategy::Auto;
     if ((stage_num > 0) && !v.is_rvar) {
-        if (!is_group_output) {
-            if (access_inputs_or_outputs(def, v, costs.inputs, outputs)) {
-                strategy = TailStrategy::GuardWithIf;
-            }
-        } else {
-            bool any_access_inputs_outputs = false;
-            for (const FStage &mem : g.members) {
-                if (mem.func.name() == f_handle.name()) {
-                    continue;
-                }
-                Definition mem_def = get_stage_definition(mem.func, mem.stage_num);
-                if (access_inputs_or_outputs(mem_def, v, costs.inputs, outputs)) {
-                    any_access_inputs_outputs = true;
-                    break;
-                }
-            }
-            if (any_access_inputs_outputs) {
-                strategy = TailStrategy::GuardWithIf;
-            }
-        }
+        // TODO: It's safe to use RoundUp here if we know there are no
+        // loads from any input, but at this point we've lost track of
+        // loads from inputs that happen inside inlined Funcs.
+        strategy = TailStrategy::GuardWithIf;
     }
 
     f_handle.split(v, outer, inner, factor, strategy);
@@ -3529,9 +3511,6 @@ string generate_schedules(const vector<Function> &outputs, const Target &target,
     part.generate_cpu_schedule(target, sched);
 
     std::ostringstream oss;
-    oss << "// Target: " << target.to_string() << "\n";
-    oss << "// MachineParams: " << arch_params.to_string() << "\n";
-    oss << "\n";
     oss << sched;
     string sched_string = oss.str();
 

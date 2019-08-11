@@ -39,6 +39,23 @@ void get_program_name(char *name, int32_t size) {
 }
 #endif
 
+namespace {
+
+template<typename T>
+inline T load_misaligned(const T *p) {
+    T result;
+    memcpy(&result, p, sizeof(T));
+    return result;
+}
+
+#if LLVM_VERSION >= 100
+typedef uint64_t llvm_offset_t;
+#else
+typedef uint32_t llvm_offset_t;
+#endif
+
+}
+
 class DebugSections {
 
     bool calibrated;
@@ -924,6 +941,23 @@ private:
             llvm::StringRef name;
             iter->getName(name);
             debug(2) << "Section: " << name.str() << "\n";
+#if LLVM_VERSION >= 90
+            // ignore errors, just leave strings empty
+            auto e = iter->getContents();
+            if (e) {
+                if (name == prefix + "debug_info") {
+                    debug_info = *e;
+                } else if (name == prefix + "debug_abbrev") {
+                    debug_abbrev = *e;
+                } else if (name == prefix + "debug_str") {
+                    debug_str = *e;
+                } else if (name == prefix + "debug_line") {
+                    debug_line = *e;
+                } else if (name == prefix + "debug_ranges") {
+                    debug_ranges = *e;
+                }
+            }
+#else
             if (name == prefix + "debug_info") {
                 iter->getContents(debug_info);
             } else if (name == prefix + "debug_abbrev") {
@@ -935,6 +969,7 @@ private:
             } else if (name == prefix + "debug_ranges") {
                 iter->getContents(debug_ranges);
             }
+#endif
         }
 
         if (debug_info.empty() ||
@@ -964,7 +999,7 @@ private:
 
     }
 
-    void parse_debug_abbrev(const llvm::DataExtractor &e, uint32_t off = 0) {
+    void parse_debug_abbrev(const llvm::DataExtractor &e, llvm_offset_t off = 0) {
         entry_formats.clear();
         while (1) {
             EntryFormat fmt;
@@ -996,7 +1031,7 @@ private:
                           llvm::StringRef debug_str,
                           llvm::StringRef debug_ranges) {
         // Offset into the section
-        uint32_t off = 0;
+        llvm_offset_t off = 0;
 
         llvm::StringRef debug_info = e.getData();
 
@@ -1458,7 +1493,7 @@ private:
                             } else if (payload && payload[0] == 0x03 && val == (sizeof(void *) + 1)) {
                                 // It's a global
                                 // payload + 1 is an address
-                                const void *addr = *((const void * const *)(payload + 1));
+                                const void *addr = load_misaligned((const void * const *)(payload + 1));
                                 gvar.addr = (uint64_t)(addr);
                             } else {
                                 // Some other format that we don't understand
@@ -1525,8 +1560,10 @@ private:
                                 // It's an array of addresses
                                 const void * const * ptr = (const void * const *)(debug_ranges.data() + val);
                                 const void * const * end = (const void * const *)(debug_ranges.data() + debug_ranges.size());
-                                while (ptr[0] && ptr < end-1) {
-                                    LiveRange r = {(uint64_t)ptr[0], (uint64_t)ptr[1]};
+                                // Note: might not be properly aligned; use memcpy to avoid
+                                // sanitizer warnings
+                                while (load_misaligned(ptr) && ptr < end-1) {
+                                    LiveRange r = {(uint64_t)load_misaligned(ptr), (uint64_t)load_misaligned(ptr+1)};
                                     r.pc_begin += compile_unit_base_pc;
                                     r.pc_end += compile_unit_base_pc;
                                     live_ranges.push_back(r);
@@ -1869,7 +1906,7 @@ private:
     }
 
     void parse_debug_line(const llvm::DataExtractor &e) {
-        uint32_t off = 0;
+        llvm_offset_t off = 0;
 
         // For every compilation unit
         while (1) {
@@ -1881,7 +1918,7 @@ private:
                 break;
             }
 
-            uint32_t unit_end = off + unit_length;
+            llvm_offset_t unit_end = off + unit_length;
 
             debug(5) << "Parsing compilation unit from " << off << " to " << unit_end << "\n";
 
@@ -1889,7 +1926,7 @@ private:
             assert(version >= 2);
 
             uint32_t header_length = e.getU32(&off);
-            uint32_t end_header_off = off + header_length;
+            llvm_offset_t end_header_off = off + header_length;
             uint8_t min_instruction_length = e.getU8(&off);
             uint8_t max_ops_per_instruction = 1;
             if (version >= 4) {
@@ -1980,9 +2017,9 @@ private:
 
                 if (opcode == 0) {
                     // Extended opcodes
-                    uint32_t ext_offset = off;
+                    llvm_offset_t ext_offset = off;
                     uint64_t len = e.getULEB128(&off);
-                    uint32_t arg_size = len - (off - ext_offset);
+                    llvm_offset_t arg_size = len - (off - ext_offset);
                     uint8_t sub_opcode = e.getU8(&off);
                     switch (sub_opcode) {
                     case 1: // end_sequence

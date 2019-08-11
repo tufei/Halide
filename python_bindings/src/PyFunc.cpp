@@ -240,51 +240,28 @@ void define_func(py::module &m) {
         .def("extern_function_name", &Func::extern_function_name)
 
         .def("define_extern", (void (Func::*)(const std::string &, const std::vector<ExternFuncArgument> &,
-                const std::vector<Type> &, const std::vector<Var> &, NameMangling, DeviceAPI, bool)) &Func::define_extern,
+                const std::vector<Type> &, const std::vector<Var> &, NameMangling, DeviceAPI)) &Func::define_extern,
              py::arg("function_name"), py::arg("params"), py::arg("types"),
              py::arg("arguments"), py::arg("mangling") = NameMangling::Default,
-             py::arg("device_api") = DeviceAPI::Host,
-             py::arg("uses_old_buffer_t") = false)
+             py::arg("device_api") = DeviceAPI::Host)
 
         .def("define_extern", (void (Func::*)(const std::string &, const std::vector<ExternFuncArgument> &,
-                Type, int, NameMangling, bool)) &Func::define_extern,
-             py::arg("function_name"), py::arg("params"), py::arg("type"),
-             py::arg("dimensionality"), py::arg("mangling"),
-             py::arg("uses_old_buffer_t"))
-
-
-        .def("define_extern", (void (Func::*)(const std::string &, const std::vector<ExternFuncArgument> &,
-                Type, int, NameMangling, DeviceAPI, bool)) &Func::define_extern,
+                Type, int, NameMangling, DeviceAPI)) &Func::define_extern,
              py::arg("function_name"), py::arg("params"), py::arg("type"),
              py::arg("dimensionality"), py::arg("mangling") = NameMangling::Default,
-             py::arg("device_api") = DeviceAPI::Host,
-             py::arg("uses_old_buffer_t") = false)
+             py::arg("device_api") = DeviceAPI::Host)
 
         .def("define_extern", (void (Func::*)(const std::string &, const std::vector<ExternFuncArgument> &,
-                const std::vector<Type> &, int, NameMangling, DeviceAPI, bool)) &Func::define_extern,
+                const std::vector<Type> &, int, NameMangling, DeviceAPI)) &Func::define_extern,
              py::arg("function_name"), py::arg("params"), py::arg("types"),
              py::arg("dimensionality"), py::arg("mangling") = NameMangling::Default,
-             py::arg("device_api") = DeviceAPI::Host,
-             py::arg("uses_old_buffer_t") = false)
+             py::arg("device_api") = DeviceAPI::Host)
 
         .def("define_extern", (void (Func::*)(const std::string &, const std::vector<ExternFuncArgument> &,
-                Type, const std::vector<Var> &, NameMangling, bool)) &Func::define_extern,
-             py::arg("function_name"), py::arg("params"), py::arg("type"),
-             py::arg("arguments"), py::arg("mangling"),
-             py::arg("uses_old_buffer_t"))
-
-        .def("define_extern", (void (Func::*)(const std::string &, const std::vector<ExternFuncArgument> &,
-                Type, const std::vector<Var> &, NameMangling, DeviceAPI, bool)) &Func::define_extern,
+                Type, const std::vector<Var> &, NameMangling, DeviceAPI)) &Func::define_extern,
              py::arg("function_name"), py::arg("params"), py::arg("type"),
              py::arg("arguments"), py::arg("mangling") = NameMangling::Default,
-             py::arg("device_api") = DeviceAPI::Host,
-             py::arg("uses_old_buffer_t") = false)
-
-        .def("define_extern", (void (Func::*)(const std::string &, const std::vector<ExternFuncArgument> &,
-                const std::vector<Type> &, const std::vector<Var> &, NameMangling, bool)) &Func::define_extern,
-             py::arg("function_name"), py::arg("params"), py::arg("types"),
-             py::arg("arguments"), py::arg("mangling"),
-             py::arg("uses_old_buffer_t"))
+             py::arg("device_api") = DeviceAPI::Host)
 
         .def("output_buffer", &Func::output_buffer)
         .def("output_buffers", &Func::output_buffers)
@@ -311,8 +288,10 @@ void define_func(py::module &m) {
             py::arg("device_api") = DeviceAPI::Default_GPU)
         .def("copy_to_host", &Func::copy_to_host)
 
-        .def("estimate", &Func::estimate,
+        .def("set_estimate", &Func::set_estimate,
             py::arg("var"), py::arg("min"), py::arg("extent"))
+        .def("set_estimates", &Func::set_estimates,
+            py::arg("estimates"))
 
         .def("align_bounds", &Func::align_bounds,
             py::arg("var"), py::arg("modulus"), py::arg("remainder") = 0)

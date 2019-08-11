@@ -47,7 +47,7 @@ struct DefinitionContents {
         }
     }
 
-    void mutate(IRMutator2 *mutator) {
+    void mutate(IRMutator *mutator) {
         if (predicate.defined()) {
             predicate = mutator->mutate(predicate);
         }
@@ -71,7 +71,7 @@ struct DefinitionContents {
 };
 
 template<>
-RefCount &ref_count<DefinitionContents>(const DefinitionContents *d) {
+RefCount &ref_count<DefinitionContents>(const DefinitionContents *d) noexcept {
     return d->ref_count;
 }
 
@@ -136,7 +136,7 @@ void Definition::accept(IRVisitor *visitor) const {
     contents->accept(visitor);
 }
 
-void Definition::mutate(IRMutator2 *mutator) {
+void Definition::mutate(IRMutator *mutator) {
     contents->mutate(mutator);
 }
 

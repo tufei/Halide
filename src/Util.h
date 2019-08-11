@@ -24,6 +24,7 @@
 
 #ifndef HALIDE_EXPORT
 #if defined(_MSC_VER)
+// Halide_EXPORTS is quietly defined by CMake when building a shared library
 #ifdef Halide_EXPORTS
 #define HALIDE_EXPORT __declspec(dllexport)
 #else
@@ -262,6 +263,19 @@ void dir_rmdir(const std::string &name);
 /** Wrapper for stat(). Asserts upon error. */
 FileStat file_stat(const std::string &name);
 
+/** Read the entire contents of a file into a vector<char>. The file
+ * is read in binary mode. Errors trigger an assertion failure. */
+std::vector<char> read_entire_file(const std::string &pathname);
+
+/** Create or replace the contents of a file with a given pointer-and-length
+ * of memory. If the file doesn't exist, it is created; if it does exist, it
+ * is completely overwritten. Any error triggers an assertion failure. */
+void write_entire_file(const std::string &pathname, const void *source, size_t source_len);
+
+inline void write_entire_file(const std::string &pathname, const std::vector<char> &source) {
+    write_entire_file(pathname, source.data(), source.size());
+}
+
 /** A simple utility class that creates a temporary file in its ctor and
  * deletes that file in its dtor; this is useful for temporary files that you
  * want to ensure are deleted when exiting a certain scope. Since this is essentially
@@ -305,6 +319,9 @@ struct ScopedValue {
     ScopedValue(T &var, T new_value) : var(var), old_value(var) { var = new_value; }
     ~ScopedValue() { var = old_value; }
     operator T() const { return old_value; }
+    // allow move but not copy
+    ScopedValue(const ScopedValue& that) = delete;
+    ScopedValue(ScopedValue&& that) = default;
 };
 
 // Wrappers for some C++14-isms that are useful and trivially implementable

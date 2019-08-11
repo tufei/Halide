@@ -30,7 +30,7 @@ using std::vector;
 using namespace llvm;
 
 CodeGen_PTX_Dev::CodeGen_PTX_Dev(Target host) : CodeGen_LLVM(host) {
-    #if !(WITH_PTX)
+    #if !defined(WITH_PTX)
     user_error << "ptx not enabled for this build of Halide.\n";
     #endif
     user_assert(llvm_NVPTX_enabled) << "llvm build not configured with nvptx target enabled\n.";
@@ -74,13 +74,6 @@ void CodeGen_PTX_Dev::add_kernel(Stmt stmt,
     for (size_t i = 0; i < args.size(); i++) {
         if (args[i].is_buffer) {
             function->addParamAttr(i, Attribute::NoAlias);
-        }
-    }
-
-    // Get the alignment of the integer arguments
-    for (size_t i = 0; i < args.size(); i++) {
-        if (args[i].alignment.modulus) {
-            alignment_info.push(args[i].name, args[i].alignment);
         }
     }
 
@@ -249,11 +242,11 @@ void CodeGen_PTX_Dev::visit(const Load *op) {
     const Ramp *r = op->index.as<Ramp>();
     // TODO: lanes >= 4, not lanes == 4
     if (is_one(op->predicate) && r && is_one(r->stride) && r->lanes == 4 && op->type.bits() == 32) {
-        ModulusRemainder align = modulus_remainder(r->base, alignment_info);
+        ModulusRemainder align = op->alignment;
         if (align.modulus % 4 == 0 && align.remainder % 4 == 0) {
             Expr index = simplify(r->base / 4);
             Expr equiv = Load::make(UInt(128), op->name, index,
-                                    op->image, op->param, const_true());
+                                    op->image, op->param, const_true(), align / 4);
             equiv = reinterpret(op->type, equiv);
             codegen(equiv);
             return;
@@ -269,11 +262,11 @@ void CodeGen_PTX_Dev::visit(const Store *op) {
     const Ramp *r = op->index.as<Ramp>();
     // TODO: lanes >= 4, not lanes == 4
     if (is_one(op->predicate) && r && is_one(r->stride) && r->lanes == 4 && op->value.type().bits() == 32) {
-        ModulusRemainder align = modulus_remainder(r->base, alignment_info);
+        ModulusRemainder align = op->alignment;
         if (align.modulus % 4 == 0 && align.remainder % 4 == 0) {
             Expr index = simplify(r->base / 4);
             Expr value = reinterpret(UInt(128), op->value);
-            Stmt equiv = Store::make(op->name, value, index, op->param, const_true());
+            Stmt equiv = Store::make(op->name, value, index, op->param, const_true(), align / 4);
             codegen(equiv);
             return;
         }
@@ -416,15 +409,9 @@ vector<char> CodeGen_PTX_Dev::compile_to_src() {
     // Output string stream
 
     // Ask the target to add backend passes as necessary.
-#if LLVM_VERSION < 70
-    bool fail = target_machine->addPassesToEmitFile(module_pass_manager, ostream,
-                                                    TargetMachine::CGFT_AssemblyFile,
-                                                    true);
-#else
     bool fail = target_machine->addPassesToEmitFile(module_pass_manager, ostream, nullptr,
                                                     TargetMachine::CGFT_AssemblyFile,
                                                     true);
-#endif
     if (fail) {
         internal_error << "Failed to set up passes to emit PTX source\n";
     }

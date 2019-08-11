@@ -22,7 +22,18 @@ struct Target {
     /** The operating system used by the target. Determines which
      * system calls to generate.
      * Corresponds to os_name_map in Target.cpp. */
-    enum OS {OSUnknown = 0, Linux, Windows, OSX, Android, IOS, QuRT, NoOS} os;
+    enum OS {
+        OSUnknown = 0,
+        Linux,
+        Windows,
+        OSX,
+        Android,
+        IOS,
+        QuRT,
+        NoOS,
+        Fuchsia,
+        WebAssemblyRuntime
+    } os;
 
     /** The architecture used by the target. Determines the
      * instruction set to use.
@@ -34,6 +45,8 @@ struct Target {
         MIPS,
         Hexagon,
         POWERPC,
+        WebAssembly,
+        RISCV
     } arch;
 
     /** The bit-width of the target machine. Must be 0 for unknown, or 32 or 64. */
@@ -69,6 +82,7 @@ struct Target {
         CLHalf = halide_target_feature_cl_half,
         OpenGL = halide_target_feature_opengl,
         OpenGLCompute = halide_target_feature_openglcompute,
+        EGL = halide_target_feature_egl,
         UserContext = halide_target_feature_user_context,
         Matlab = halide_target_feature_matlab,
         Profile = halide_target_feature_profile,
@@ -94,6 +108,7 @@ struct Target {
         TraceLoads = halide_target_feature_trace_loads,
         TraceStores = halide_target_feature_trace_stores,
         TraceRealizations = halide_target_feature_trace_realizations,
+        TracePipeline = halide_target_feature_trace_pipeline,
         D3D12Compute = halide_target_feature_d3d12compute,
         StrictFloat = halide_target_feature_strict_float,
         LegacyBufferWrappers = halide_target_feature_legacy_buffer_wrappers,
@@ -101,12 +116,16 @@ struct Target {
         ASAN = halide_target_feature_asan,
         CheckUnsafePromises = halide_target_feature_check_unsafe_promises,
         EmbedBitcode = halide_target_feature_embed_bitcode,
-        DisableLLVMLoopVectorize = halide_target_feature_disable_llvm_loop_vectorize,
-        DisableLLVMLoopUnroll = halide_target_feature_disable_llvm_loop_unroll,
+        EnableLLVMLoopOpt = halide_target_feature_enable_llvm_loop_opt,
+        DisableLLVMLoopOpt = halide_target_feature_disable_llvm_loop_opt,
+        WasmSimd128 = halide_target_feature_wasm_simd128,
+        WasmSignExt = halide_target_feature_wasm_signext,
+        SVE = halide_target_feature_sve,
+        SVE2 = halide_target_feature_sve2,
         FeatureEnd = halide_target_feature_end
     };
     Target() : os(OSUnknown), arch(ArchUnknown), bits(0) {}
-    Target(OS o, Arch a, int b, std::vector<Feature> initial_features = std::vector<Feature>())
+    Target(OS o, Arch a, int b, const std::vector<Feature> &initial_features = std::vector<Feature>())
         : os(o), arch(a), bits(b) {
         for (const auto &f :initial_features) {
             set_feature(f);
@@ -189,6 +208,17 @@ struct Target {
       return !(*this == other);
     }
 
+    /**
+     * Create a "greatest common denominator" runtime target that is compatible with
+     * both this target and \p other. Used by generators to conveniently select a suitable
+     * runtime when linking together multiple functions.
+     *
+     * @param other The other target from which we compute the gcd target.
+     * @param[out] result The gcd target if we return true, otherwise unmodified. Can be the same as *this.
+     * @return Whether it was possible to find a compatible target (true) or not.
+     */
+    bool get_runtime_compatible_target(const Target& other, Target &result);
+
     /** Convert the Target into a string form that can be reconstituted
      * by merge_string(), which will always be of the form
      *
@@ -231,6 +261,15 @@ struct Target {
 
     /** Was libHalide compiled with support for this target? */
     bool supported() const;
+
+    /** Return a bitset of the Featuress set in this Target (set = 1).
+     * Note that while this happens to be the current internal representation,
+     * that might not always be the case. */
+    const std::bitset<FeatureEnd> &get_features_bitset() const { return features; }
+
+    /** Return the name corresponding to a given Feature, in the form
+     * used to construct Target strings (e.g., Feature::Debug is "debug" and not "Debug"). */
+    static std::string feature_name(Target::Feature feature);
 
 private:
     /** A bitmask that stores the active features. */

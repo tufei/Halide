@@ -7,7 +7,7 @@ into a single executable that can be run directly from bash, without needing to
 wrap it in your own custom main() driver. It also implements a rudimentary
 benchmarking and memory-usage functionality.
 
-If you use the standard CMake (or Bazel) rules for Generators, you get RunGen
+If you use the standard CMake rules for Generators, you get RunGen
 functionality automatically. (If you use Make, you might need to add an extra
 rule or two to your Makefile; all the examples in `apps/` already have these
 rules.)
@@ -130,6 +130,14 @@ Generator, and inits every element to zero:
 $ ./bin/local_laplacian.rungen --output_extents=[100,200,3] input=zero:[123,456,3] levels=8 alpha=1 beta=1 output=/tmp/out.png
 ```
 
+You can also specify arbitrary (nonzero) constants:
+
+```
+# Input is a 3-dimensional image with extent 123, 456, and 3,
+# filled with a constant value of 42
+$ ./bin/local_laplacian.rungen --output_extents=[100,200,3] input=constant:42:[123,456,3] levels=8 alpha=1 beta=1 output=/tmp/out.png
+```
+
 Similarly, you can create identity images where only the diagonal elements are
 1-s (rest are 0-s) by invoking `identity:[]`. Diagonal elements are defined as
 those whose first two coordinates are equal.
@@ -158,6 +166,15 @@ aren't estimates for all of the buffer's dimensions, a runtime error occurs.)
 ```
 $ ./bin/local_laplacian.rungen --output_extents=[100,200,3] input=zero:auto levels=8 alpha=1 beta=1 output=/tmp/out.png
 ```
+
+You can combine the two and specify `estimate_then_auto` for the extents, which
+will attempt to use the estimate values; if a given input buffer has no
+estimates, it will fall back to the bounds-query result for that input:
+
+```
+$ ./bin/local_laplacian.rungen --output_extents=[100,200,3] input=zero:estimate_then_auto levels=8 alpha=1 beta=1 output=/tmp/out.png
+```
+
 
 Similarly, you can use `estimate` for `--output_extents`, which will use the
 estimate values for each output. (If there aren't estimates for all of the
@@ -188,21 +205,28 @@ highly recommended you do testing with the `--verbose` flag (which will log the
 calculated sizes) to reality-check that you are getting what you expect,
 especially for benchmarking.
 
+A common case (especially for benchmarking) is to specify using estimates for
+all inputs and outputs; for this, you can specify `--estimate_all`, which is
+just a shortcut for `--default_input_buffers=estimate_then_auto --default_input_scalars=estimate --output_extents=estimate`.
+
+
 ## Benchmarking
 
-To run a benchmark, use the `--benchmark` flag:
+To run a benchmark, use the `--benchmarks=all` flag:
 
 ```
-# When you specify the --benchmark flag, outputs become optional.
-$ ./bin/local_laplacian.rungen --benchmark input=zero:[1920,1080,3] levels=8 alpha=1 beta=1
+$ ./bin/local_laplacian.rungen --benchmarks=all input=zero:[1920,1080,3] levels=8 alpha=1 beta=1 --output_extents=[100,200,3]
 Benchmark for local_laplacian produces best case of 0.0494629 sec/iter, over 3 blocks of 10 iterations.
 Best output throughput is 39.9802 mpix/sec.
 ```
 
-Note: this uses Halide's `halide_benchmark.h` to measure the execution time,
-which runs several consecutive sample sets (default=3) of multiple iterations
-(default=10) each, then chooses the best average time. You can use the
-`--benchmark_samples` and `--benchmark_iterations` to override these defaults.
+You can use `--default_input_buffers` and `--default_input_scalars` here as well:
+
+```
+$ ./bin/local_laplacian.rungen --benchmarks=all --default_input_buffers --default_input_scalars --output_extents=estimate
+Benchmark for local_laplacian produces best case of 0.0494629 sec/iter, over 3 blocks of 10 iterations.
+Best output throughput is 39.9802 mpix/sec.
+```
 
 Note: `halide_benchmark.h` is known to be inaccurate for GPU filters; see
 https://github.com/halide/Halide/issues/2278
@@ -213,8 +237,7 @@ To track memory usage, use the `--track_memory` flag, which measures the
 high-water-mark of CPU memory usage.
 
 ```
-# When you specify the --track_memory flag, outputs become optional.
-$ ./bin/local_laplacian.rungen --track_memory input=zero:[1920,1080,3] levels=8 alpha=1 beta=1
+$ ./bin/local_laplacian.rungen --track_memory input=zero:[1920,1080,3] levels=8 alpha=1 beta=1 --output_extents=[100,200,3]
 Maximum Halide memory: 82688420 bytes for output of 1.97754 mpix.
 ```
 
@@ -234,14 +257,18 @@ $(BIN)/RunGenMain.o: $(HALIDE_DISTRIB)/tools/RunGenMain.cpp
   @$(CXX) -c $< $(CXXFLAGS) $(LIBPNG_CXX_FLAGS) $(LIBJPEG_CXX_FLAGS) -I$(BIN) -o $@
 
 .PRECIOUS: $(BIN)/%.rungen
-$(BIN)/%.rungen: $(BIN)/%.a $(BIN)/RunGenMain.o $(HALIDE_DISTRIB)/tools/RunGenStubs.cpp
-  $(CXX) $(CXXFLAGS) -DHL_RUNGEN_FILTER_HEADER=\"$*.h\" $^ -o $@ $(LIBPNG_LIBS) $(LIBJPEG_LIBS) $(LDFLAGS)
+$(BIN)/%.rungen: $(BIN)/%.a $(BIN)/%.registration.cpp $(BIN)/RunGenMain.o
+  $(CXX) $(CXXFLAGS) $^ -o $@ $(LIBPNG_LIBS) $(LIBJPEG_LIBS) $(LDFLAGS)
 
 RUNARGS ?=
 
 $(BIN)/%.run: $(BIN)/%.rungen
   @$(CURDIR)/$< $(RUNARGS)
 ```
+
+Note that the `%.registration.cpp` file is created by running a generator and specifying
+`registration` in the comma-separated list of files to emit; these are also generated by
+default if `-e` is not used on the generator command line.
 
 ## Known Issues & Caveats
 

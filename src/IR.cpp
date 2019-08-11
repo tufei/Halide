@@ -230,7 +230,7 @@ Expr Select::make(Expr condition, Expr true_value, Expr false_value) {
     return node;
 }
 
-Expr Load::make(Type type, const std::string &name, Expr index, Buffer<> image, Parameter param, Expr predicate) {
+Expr Load::make(Type type, const std::string &name, Expr index, Buffer<> image, Parameter param, Expr predicate, ModulusRemainder alignment) {
     internal_assert(predicate.defined()) << "Load with undefined predicate\n";
     internal_assert(index.defined()) << "Load of undefined\n";
     internal_assert(type.lanes() == index.type().lanes()) << "Vector lanes of Load must match vector lanes of index\n";
@@ -244,6 +244,7 @@ Expr Load::make(Type type, const std::string &name, Expr index, Buffer<> image, 
     node->index = std::move(index);
     node->image = std::move(image);
     node->param = std::move(param);
+    node->alignment = alignment;
     return node;
 }
 
@@ -329,8 +330,8 @@ Stmt ProducerConsumer::make_consume(const std::string &name, Stmt body) {
 Stmt For::make(const std::string &name, Expr min, Expr extent, ForType for_type, DeviceAPI device_api, Stmt body) {
     internal_assert(min.defined()) << "For of undefined\n";
     internal_assert(extent.defined()) << "For of undefined\n";
-    internal_assert(min.type().is_scalar()) << "For with vector min\n";
-    internal_assert(extent.type().is_scalar()) << "For with vector extent\n";
+    internal_assert(min.type() == Int(32)) << "For with non-integer min\n";
+    internal_assert(extent.type() == Int(32)) << "For with non-integer extent\n";
     internal_assert(body.defined()) << "For of undefined\n";
 
     For *node = new For;
@@ -354,7 +355,7 @@ Stmt Acquire::make(Expr semaphore, Expr count, Stmt body) {
     return node;
 }
 
-Stmt Store::make(const std::string &name, Expr value, Expr index, Parameter param, Expr predicate) {
+Stmt Store::make(const std::string &name, Expr value, Expr index, Parameter param, Expr predicate, ModulusRemainder alignment) {
     internal_assert(predicate.defined()) << "Store with undefined predicate\n";
     internal_assert(value.defined()) << "Store of undefined\n";
     internal_assert(index.defined()) << "Store of undefined\n";
@@ -368,6 +369,7 @@ Stmt Store::make(const std::string &name, Expr value, Expr index, Parameter para
     node->value = std::move(value);
     node->index = std::move(index);
     node->param = std::move(param);
+    node->alignment = alignment;
     return node;
 }
 
@@ -576,10 +578,88 @@ Expr Call::make(Function func, const std::vector<Expr> &args, int idx) {
                 func.get_contents(), idx, Buffer<>(), Parameter());
 }
 
+namespace {
+
+const char *const intrinsic_op_names[] = {
+    "abs",
+    "absd",
+    "alloca",
+    "bitwise_and",
+    "bitwise_not",
+    "bitwise_or",
+    "bitwise_xor",
+    "bool_to_mask",
+    "call_cached_indirect_function",
+    "cast_mask",
+    "count_leading_zeros",
+    "count_trailing_zeros",
+    "debug_to_file",
+    "div_round_to_zero",
+    "dynamic_shuffle",
+    "extract_mask_element",
+    "gather",
+    "glsl_texture_load",
+    "glsl_texture_store",
+    "glsl_varying",
+    "gpu_thread_barrier",
+    "if_then_else",
+    "if_then_else_mask",
+    "image_load",
+    "image_store",
+    "indeterminate_expression",
+    "lerp",
+    "likely",
+    "likely_if_innermost",
+    "make_struct",
+    "memoize_expr",
+    "mod_round_to_zero",
+    "mulhi_shr",
+    "popcount",
+    "prefetch",
+    "quiet_div",
+    "quiet_mod",
+    "random",
+    "register_destructor",
+    "reinterpret",
+    "require",
+    "require_mask",
+    "return_second",
+    "rewrite_buffer",
+    "scatter",
+    "scatter_acc",
+    "scatter_release",
+    "select_mask",
+    "shift_left",
+    "shift_right",
+    "signed_integer_overflow",
+    "size_of_halide_buffer_t",
+    "sorted_avg",
+    "strict_float",
+    "stringify",
+    "undef",
+    "unsafe_promise_clamped"
+};
+
+static_assert(sizeof(intrinsic_op_names)/sizeof(intrinsic_op_names[0]) == Call::IntrinsicOpCount, "intrinsic_op_names needs attention");
+
+
+}  // namespace
+
+const char *Call::get_intrinsic_name(IntrinsicOp op) {
+    return intrinsic_op_names[op];
+}
+
+Expr Call::make(Type type, Call::IntrinsicOp op, const std::vector<Expr> &args, CallType call_type,
+                FunctionPtr func, int value_index,
+                Buffer<> image, Parameter param) {
+    internal_assert(call_type == Call::Intrinsic || call_type == Call::PureIntrinsic);
+    return Call::make(type, intrinsic_op_names[op], args, call_type, func, value_index, image, param);
+}
+
 Expr Call::make(Type type, const std::string &name, const std::vector<Expr> &args, CallType call_type,
                 FunctionPtr func, int value_index,
                 Buffer<> image, Parameter param) {
-    if (name == Call::prefetch && call_type == Call::Intrinsic) {
+    if (name == intrinsic_op_names[Call::prefetch] && call_type == Call::Intrinsic) {
         internal_assert(args.size() % 2 == 0)
             << "Number of args to a prefetch call should be even: {base, offset, extent0, stride0, extent1, stride1, ...}\n";
     }
@@ -819,99 +899,51 @@ template<> void StmtNode<Prefetch>::accept(IRVisitor *v) const { v->visit((const
 template<> void StmtNode<Acquire>::accept(IRVisitor *v) const { v->visit((const Acquire *)this); }
 template<> void StmtNode<Fork>::accept(IRVisitor *v) const { v->visit((const Fork *)this); }
 
-template<> Expr ExprNode<IntImm>::mutate_expr(IRMutator2 *v) const { return v->visit((const IntImm *)this); }
-template<> Expr ExprNode<UIntImm>::mutate_expr(IRMutator2 *v) const { return v->visit((const UIntImm *)this); }
-template<> Expr ExprNode<FloatImm>::mutate_expr(IRMutator2 *v) const { return v->visit((const FloatImm *)this); }
-template<> Expr ExprNode<StringImm>::mutate_expr(IRMutator2 *v) const { return v->visit((const StringImm *)this); }
-template<> Expr ExprNode<Cast>::mutate_expr(IRMutator2 *v) const { return v->visit((const Cast *)this); }
-template<> Expr ExprNode<Variable>::mutate_expr(IRMutator2 *v) const { return v->visit((const Variable *)this); }
-template<> Expr ExprNode<Add>::mutate_expr(IRMutator2 *v) const { return v->visit((const Add *)this); }
-template<> Expr ExprNode<Sub>::mutate_expr(IRMutator2 *v) const { return v->visit((const Sub *)this); }
-template<> Expr ExprNode<Mul>::mutate_expr(IRMutator2 *v) const { return v->visit((const Mul *)this); }
-template<> Expr ExprNode<Div>::mutate_expr(IRMutator2 *v) const { return v->visit((const Div *)this); }
-template<> Expr ExprNode<Mod>::mutate_expr(IRMutator2 *v) const { return v->visit((const Mod *)this); }
-template<> Expr ExprNode<Min>::mutate_expr(IRMutator2 *v) const { return v->visit((const Min *)this); }
-template<> Expr ExprNode<Max>::mutate_expr(IRMutator2 *v) const { return v->visit((const Max *)this); }
-template<> Expr ExprNode<EQ>::mutate_expr(IRMutator2 *v) const { return v->visit((const EQ *)this); }
-template<> Expr ExprNode<NE>::mutate_expr(IRMutator2 *v) const { return v->visit((const NE *)this); }
-template<> Expr ExprNode<LT>::mutate_expr(IRMutator2 *v) const { return v->visit((const LT *)this); }
-template<> Expr ExprNode<LE>::mutate_expr(IRMutator2 *v) const { return v->visit((const LE *)this); }
-template<> Expr ExprNode<GT>::mutate_expr(IRMutator2 *v) const { return v->visit((const GT *)this); }
-template<> Expr ExprNode<GE>::mutate_expr(IRMutator2 *v) const { return v->visit((const GE *)this); }
-template<> Expr ExprNode<And>::mutate_expr(IRMutator2 *v) const { return v->visit((const And *)this); }
-template<> Expr ExprNode<Or>::mutate_expr(IRMutator2 *v) const { return v->visit((const Or *)this); }
-template<> Expr ExprNode<Not>::mutate_expr(IRMutator2 *v) const { return v->visit((const Not *)this); }
-template<> Expr ExprNode<Select>::mutate_expr(IRMutator2 *v) const { return v->visit((const Select *)this); }
-template<> Expr ExprNode<Load>::mutate_expr(IRMutator2 *v) const { return v->visit((const Load *)this); }
-template<> Expr ExprNode<Ramp>::mutate_expr(IRMutator2 *v) const { return v->visit((const Ramp *)this); }
-template<> Expr ExprNode<Broadcast>::mutate_expr(IRMutator2 *v) const { return v->visit((const Broadcast *)this); }
-template<> Expr ExprNode<Call>::mutate_expr(IRMutator2 *v) const { return v->visit((const Call *)this); }
-template<> Expr ExprNode<Shuffle>::mutate_expr(IRMutator2 *v) const { return v->visit((const Shuffle *)this); }
-template<> Expr ExprNode<Let>::mutate_expr(IRMutator2 *v) const { return v->visit((const Let *)this); }
+template<> Expr ExprNode<IntImm>::mutate_expr(IRMutator *v) const { return v->visit((const IntImm *)this); }
+template<> Expr ExprNode<UIntImm>::mutate_expr(IRMutator *v) const { return v->visit((const UIntImm *)this); }
+template<> Expr ExprNode<FloatImm>::mutate_expr(IRMutator *v) const { return v->visit((const FloatImm *)this); }
+template<> Expr ExprNode<StringImm>::mutate_expr(IRMutator *v) const { return v->visit((const StringImm *)this); }
+template<> Expr ExprNode<Cast>::mutate_expr(IRMutator *v) const { return v->visit((const Cast *)this); }
+template<> Expr ExprNode<Variable>::mutate_expr(IRMutator *v) const { return v->visit((const Variable *)this); }
+template<> Expr ExprNode<Add>::mutate_expr(IRMutator *v) const { return v->visit((const Add *)this); }
+template<> Expr ExprNode<Sub>::mutate_expr(IRMutator *v) const { return v->visit((const Sub *)this); }
+template<> Expr ExprNode<Mul>::mutate_expr(IRMutator *v) const { return v->visit((const Mul *)this); }
+template<> Expr ExprNode<Div>::mutate_expr(IRMutator *v) const { return v->visit((const Div *)this); }
+template<> Expr ExprNode<Mod>::mutate_expr(IRMutator *v) const { return v->visit((const Mod *)this); }
+template<> Expr ExprNode<Min>::mutate_expr(IRMutator *v) const { return v->visit((const Min *)this); }
+template<> Expr ExprNode<Max>::mutate_expr(IRMutator *v) const { return v->visit((const Max *)this); }
+template<> Expr ExprNode<EQ>::mutate_expr(IRMutator *v) const { return v->visit((const EQ *)this); }
+template<> Expr ExprNode<NE>::mutate_expr(IRMutator *v) const { return v->visit((const NE *)this); }
+template<> Expr ExprNode<LT>::mutate_expr(IRMutator *v) const { return v->visit((const LT *)this); }
+template<> Expr ExprNode<LE>::mutate_expr(IRMutator *v) const { return v->visit((const LE *)this); }
+template<> Expr ExprNode<GT>::mutate_expr(IRMutator *v) const { return v->visit((const GT *)this); }
+template<> Expr ExprNode<GE>::mutate_expr(IRMutator *v) const { return v->visit((const GE *)this); }
+template<> Expr ExprNode<And>::mutate_expr(IRMutator *v) const { return v->visit((const And *)this); }
+template<> Expr ExprNode<Or>::mutate_expr(IRMutator *v) const { return v->visit((const Or *)this); }
+template<> Expr ExprNode<Not>::mutate_expr(IRMutator *v) const { return v->visit((const Not *)this); }
+template<> Expr ExprNode<Select>::mutate_expr(IRMutator *v) const { return v->visit((const Select *)this); }
+template<> Expr ExprNode<Load>::mutate_expr(IRMutator *v) const { return v->visit((const Load *)this); }
+template<> Expr ExprNode<Ramp>::mutate_expr(IRMutator *v) const { return v->visit((const Ramp *)this); }
+template<> Expr ExprNode<Broadcast>::mutate_expr(IRMutator *v) const { return v->visit((const Broadcast *)this); }
+template<> Expr ExprNode<Call>::mutate_expr(IRMutator *v) const { return v->visit((const Call *)this); }
+template<> Expr ExprNode<Shuffle>::mutate_expr(IRMutator *v) const { return v->visit((const Shuffle *)this); }
+template<> Expr ExprNode<Let>::mutate_expr(IRMutator *v) const { return v->visit((const Let *)this); }
 
-template<> Stmt StmtNode<LetStmt>::mutate_stmt(IRMutator2 *v) const { return v->visit((const LetStmt *)this); }
-template<> Stmt StmtNode<AssertStmt>::mutate_stmt(IRMutator2 *v) const { return v->visit((const AssertStmt *)this); }
-template<> Stmt StmtNode<ProducerConsumer>::mutate_stmt(IRMutator2 *v) const { return v->visit((const ProducerConsumer *)this); }
-template<> Stmt StmtNode<For>::mutate_stmt(IRMutator2 *v) const { return v->visit((const For *)this); }
-template<> Stmt StmtNode<Store>::mutate_stmt(IRMutator2 *v) const { return v->visit((const Store *)this); }
-template<> Stmt StmtNode<Provide>::mutate_stmt(IRMutator2 *v) const { return v->visit((const Provide *)this); }
-template<> Stmt StmtNode<Allocate>::mutate_stmt(IRMutator2 *v) const { return v->visit((const Allocate *)this); }
-template<> Stmt StmtNode<Free>::mutate_stmt(IRMutator2 *v) const { return v->visit((const Free *)this); }
-template<> Stmt StmtNode<Realize>::mutate_stmt(IRMutator2 *v) const { return v->visit((const Realize *)this); }
-template<> Stmt StmtNode<Block>::mutate_stmt(IRMutator2 *v) const { return v->visit((const Block *)this); }
-template<> Stmt StmtNode<IfThenElse>::mutate_stmt(IRMutator2 *v) const { return v->visit((const IfThenElse *)this); }
-template<> Stmt StmtNode<Evaluate>::mutate_stmt(IRMutator2 *v) const { return v->visit((const Evaluate *)this); }
-template<> Stmt StmtNode<Prefetch>::mutate_stmt(IRMutator2 *v) const { return v->visit((const Prefetch *)this); }
-template<> Stmt StmtNode<Acquire>::mutate_stmt(IRMutator2 *v) const { return v->visit((const Acquire *)this); }
-template<> Stmt StmtNode<Fork>::mutate_stmt(IRMutator2 *v) const { return v->visit((const Fork *)this); }
-
-Call::ConstString Call::debug_to_file = "debug_to_file";
-Call::ConstString Call::reinterpret = "reinterpret";
-Call::ConstString Call::bitwise_and = "bitwise_and";
-Call::ConstString Call::bitwise_not = "bitwise_not";
-Call::ConstString Call::bitwise_xor = "bitwise_xor";
-Call::ConstString Call::bitwise_or = "bitwise_or";
-Call::ConstString Call::shift_left = "shift_left";
-Call::ConstString Call::shift_right = "shift_right";
-Call::ConstString Call::abs = "abs";
-Call::ConstString Call::absd = "absd";
-Call::ConstString Call::lerp = "lerp";
-Call::ConstString Call::random = "random";
-Call::ConstString Call::popcount = "popcount";
-Call::ConstString Call::count_leading_zeros = "count_leading_zeros";
-Call::ConstString Call::count_trailing_zeros = "count_trailing_zeros";
-Call::ConstString Call::undef = "undef";
-Call::ConstString Call::return_second = "return_second";
-Call::ConstString Call::if_then_else = "if_then_else";
-Call::ConstString Call::glsl_texture_load = "glsl_texture_load";
-Call::ConstString Call::glsl_texture_store = "glsl_texture_store";
-Call::ConstString Call::glsl_varying = "glsl_varying";
-Call::ConstString Call::image_load = "image_load";
-Call::ConstString Call::image_store = "image_store";
-Call::ConstString Call::make_struct = "make_struct";
-Call::ConstString Call::stringify = "stringify";
-Call::ConstString Call::memoize_expr = "memoize_expr";
-Call::ConstString Call::alloca = "alloca";
-Call::ConstString Call::likely = "likely";
-Call::ConstString Call::likely_if_innermost = "likely_if_innermost";
-Call::ConstString Call::register_destructor = "register_destructor";
-Call::ConstString Call::div_round_to_zero = "div_round_to_zero";
-Call::ConstString Call::mod_round_to_zero = "mod_round_to_zero";
-Call::ConstString Call::call_cached_indirect_function = "call_cached_indirect_function";
-Call::ConstString Call::prefetch = "prefetch";
-Call::ConstString Call::signed_integer_overflow = "signed_integer_overflow";
-Call::ConstString Call::indeterminate_expression = "indeterminate_expression";
-Call::ConstString Call::bool_to_mask = "bool_to_mask";
-Call::ConstString Call::cast_mask = "cast_mask";
-Call::ConstString Call::select_mask = "select_mask";
-Call::ConstString Call::extract_mask_element = "extract_mask_element";
-Call::ConstString Call::require = "require";
-Call::ConstString Call::size_of_halide_buffer_t = "size_of_halide_buffer_t";
-Call::ConstString Call::strict_float = "strict_float";
-Call::ConstString Call::quiet_div = "quiet_div";
-Call::ConstString Call::quiet_mod = "quiet_mod";
-Call::ConstString Call::unsafe_promise_clamped = "unsafe_promise_clamped";
-Call::ConstString Call::gpu_thread_barrier = "gpu_thread_barrier";
+template<> Stmt StmtNode<LetStmt>::mutate_stmt(IRMutator *v) const { return v->visit((const LetStmt *)this); }
+template<> Stmt StmtNode<AssertStmt>::mutate_stmt(IRMutator *v) const { return v->visit((const AssertStmt *)this); }
+template<> Stmt StmtNode<ProducerConsumer>::mutate_stmt(IRMutator *v) const { return v->visit((const ProducerConsumer *)this); }
+template<> Stmt StmtNode<For>::mutate_stmt(IRMutator *v) const { return v->visit((const For *)this); }
+template<> Stmt StmtNode<Store>::mutate_stmt(IRMutator *v) const { return v->visit((const Store *)this); }
+template<> Stmt StmtNode<Provide>::mutate_stmt(IRMutator *v) const { return v->visit((const Provide *)this); }
+template<> Stmt StmtNode<Allocate>::mutate_stmt(IRMutator *v) const { return v->visit((const Allocate *)this); }
+template<> Stmt StmtNode<Free>::mutate_stmt(IRMutator *v) const { return v->visit((const Free *)this); }
+template<> Stmt StmtNode<Realize>::mutate_stmt(IRMutator *v) const { return v->visit((const Realize *)this); }
+template<> Stmt StmtNode<Block>::mutate_stmt(IRMutator *v) const { return v->visit((const Block *)this); }
+template<> Stmt StmtNode<IfThenElse>::mutate_stmt(IRMutator *v) const { return v->visit((const IfThenElse *)this); }
+template<> Stmt StmtNode<Evaluate>::mutate_stmt(IRMutator *v) const { return v->visit((const Evaluate *)this); }
+template<> Stmt StmtNode<Prefetch>::mutate_stmt(IRMutator *v) const { return v->visit((const Prefetch *)this); }
+template<> Stmt StmtNode<Acquire>::mutate_stmt(IRMutator *v) const { return v->visit((const Acquire *)this); }
+template<> Stmt StmtNode<Fork>::mutate_stmt(IRMutator *v) const { return v->visit((const Fork *)this); }
 
 Call::ConstString Call::buffer_get_dimensions = "_halide_buffer_get_dimensions";
 Call::ConstString Call::buffer_get_min = "_halide_buffer_get_min";
@@ -924,9 +956,7 @@ Call::ConstString Call::buffer_get_device_interface = "_halide_buffer_get_device
 Call::ConstString Call::buffer_get_shape = "_halide_buffer_get_shape";
 Call::ConstString Call::buffer_get_host_dirty = "_halide_buffer_get_host_dirty";
 Call::ConstString Call::buffer_get_device_dirty = "_halide_buffer_get_device_dirty";
-Call::ConstString Call::buffer_get_type_code = "_halide_buffer_get_type_code";
-Call::ConstString Call::buffer_get_type_bits = "_halide_buffer_get_type_bits";
-Call::ConstString Call::buffer_get_type_lanes = "_halide_buffer_get_type_lanes";
+Call::ConstString Call::buffer_get_type = "_halide_buffer_get_type";
 Call::ConstString Call::buffer_set_host_dirty = "_halide_buffer_set_host_dirty";
 Call::ConstString Call::buffer_set_device_dirty = "_halide_buffer_set_device_dirty";
 Call::ConstString Call::buffer_is_bounds_query = "_halide_buffer_is_bounds_query";

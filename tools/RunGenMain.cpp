@@ -1,12 +1,30 @@
 #include "RunGen.h"
 
-extern "C" int halide_rungen_redirect_argv(void **args);
-extern "C" const struct halide_filter_metadata_t *halide_rungen_redirect_metadata();
-
 using namespace Halide::RunGen;
 using Halide::Tools::BenchmarkConfig;
 
 namespace {
+
+struct RegisteredFilter {
+    struct RegisteredFilter *next;
+    int (*filter_argv_call)(void **);
+    const struct halide_filter_metadata_t *filter_metadata;
+};
+
+RegisteredFilter *registered_filters = nullptr;
+
+extern "C" void halide_register_argv_and_metadata(
+    int (*filter_argv_call)(void **),
+    const struct halide_filter_metadata_t *filter_metadata,
+    const char * const *extra_key_value_pairs) {
+
+    auto *rf = new RegisteredFilter();
+    rf->next = registered_filters;
+    rf->filter_argv_call = filter_argv_call;
+    rf->filter_metadata = filter_metadata;
+    // RunGen ignores extra_key_value_pairs
+    registered_filters = rf;
+}
 
 std::string replace_all(const std::string &str,
                         const std::string &find,
@@ -33,7 +51,8 @@ Arguments:
         some_int=42 some_float=3.1415
 
     You can also use the text `default` or `estimate` to use the default or
-    estimate value of the given input.
+    estimate value of the given input, respectively. (You can join these by
+    commas to give default-then-estimate or estimate-then-default behaviors.)
 
     Buffer inputs and outputs are specified by pathname:
 
@@ -85,7 +104,7 @@ Arguments:
         the --output_extents flag.)
 
         In place of [NUM,NUM,...] for boundary, you may specify 'estimate';
-        this will use the esimated bounds specified in the code.
+        this will use the estimated bounds specified in the code.
 
 Flags:
 
@@ -135,11 +154,27 @@ Flags:
 
     --default_input_buffers=VALUE:
         Specify the value for all otherwise-unspecified buffer inputs, in the
-        same syntax in use above.
+        same syntax in use above. If you omit =VALUE, "zero:auto" will be used.
 
     --default_input_scalars=VALUE:
         Specify the value for all otherwise-unspecified scalar inputs, in the
-        same syntax in use above.
+        same syntax in use above. If you omit =VALUE, "estimate,default"
+        will be used.
+
+    --parsable_output:
+        Final output is emitted in an easy-to-parse output (one value per line),
+        rather than easy-for-humans.
+
+    --estimate_all:
+        Request that all inputs and outputs are based on estimate,
+        and fill buffers with random values. This is exactly equivalent to
+        specifying
+
+            --default_input_buffers=estimate_then_auto
+            --default_input_scalars=estimate
+            --output_extents=estimate
+
+        and is a convenience for automated benchmarking.
 
 Known Issues:
 
@@ -282,7 +317,63 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    RunGen r(halide_rungen_redirect_argv, halide_rungen_redirect_metadata);
+    // Look for --name
+    std::string filter_name;
+    for (int i = 1; i < argc; ++i) {
+        if (argv[i][0] == '-') {
+            const char *p = argv[i] + 1; // skip -
+            if (p[0] == '-') {
+                p++; // allow -- as well, because why not
+            }
+            std::vector<std::string> v = split_string(p, "=");
+            std::string flag_name = v[0];
+            std::string flag_value = v.size() > 1 ? v[1] : "";
+            if (v.size() > 2) {
+                fail() << "Invalid argument: " << argv[i];
+            }
+            if (flag_name != "name") {
+                continue;
+            }
+            if (!filter_name.empty()) {
+                fail() << "--name cannot be specified twice.";
+            }
+            filter_name = flag_value;
+            if (filter_name.empty()) {
+                fail() << "--name cannot be empty.";
+            }
+        }
+    }
+
+    auto *rf = registered_filters;
+    if (filter_name.empty()) {
+        // Just choose the first one.
+        if (rf->next != nullptr) {
+            std::ostringstream o;
+            o << "Must specify --name if multiple filters are registered; registered filters are:\n";
+            for (auto *rf = registered_filters ; rf != nullptr; rf = rf->next) {
+                o << "  " << rf->filter_metadata->name << "\n";
+            }
+            o << "\n";
+            fail() << o.str();
+        }
+    } else {
+        for ( ; rf != nullptr; rf = rf->next) {
+            if (filter_name == rf->filter_metadata->name) {
+                break;
+            }
+        }
+        if (rf == nullptr) {
+            std::ostringstream o;
+            o << "Filter " << filter_name << " not found; registered filters are:\n";
+            for (auto *rf = registered_filters ; rf != nullptr; rf = rf->next) {
+                o << "  " << rf->filter_metadata->name << "\n";
+            }
+            o << "\n";
+            fail() << o.str();
+        }
+    }
+
+    RunGen r(rf->filter_argv_call, rf->filter_metadata);
 
     std::string user_specified_output_shape;
     std::set<std::string> seen_args;
@@ -306,7 +397,9 @@ int main(int argc, char **argv) {
             if (v.size() > 2) {
                 fail() << "Invalid argument: " << argv[i];
             }
-            if (flag_name == "verbose") {
+            if (flag_name == "name") {
+                continue;
+            } else if (flag_name == "verbose") {
                 if (flag_value.empty()) {
                     flag_value = "true";
                 }
@@ -322,6 +415,15 @@ int main(int argc, char **argv) {
                     fail() << "Invalid value for flag: " << flag_name;
                 }
                 r.set_quiet(quiet);
+            } else if (flag_name == "parsable_output") {
+                if (flag_value.empty()) {
+                    flag_value = "true";
+                }
+                bool parsable_output;
+                if (!parse_scalar(flag_value, &parsable_output)) {
+                    fail() << "Invalid value for flag: " << flag_name;
+                }
+                r.set_parsable_output(parsable_output);
             } else if (flag_name == "describe") {
                 if (flag_value.empty()) {
                     flag_value = "true";
@@ -361,10 +463,18 @@ int main(int argc, char **argv) {
             } else if (flag_name == "default_input_scalars") {
                 default_input_scalars = flag_value;
                 if (default_input_scalars.empty()) {
-                    default_input_scalars = "default";
+                    default_input_scalars = "estimate,default";
                 }
             } else if (flag_name == "output_extents") {
                 user_specified_output_shape = flag_value;
+            } else if (flag_name == "estimate_all") {
+                // Equivalent to:
+                // --default_input_buffers=random:0:estimate_then_auto
+                // --default_input_scalars=estimate
+                // --output_extents=estimate
+                default_input_buffers = "random:0:estimate_then_auto";
+                default_input_scalars = "estimate";
+                user_specified_output_shape = "estimate";
             } else {
                 usage(argv[0]);
                 fail() << "Unknown flag: " << flag_name;
@@ -411,6 +521,10 @@ int main(int argc, char **argv) {
     if (track_memory) {
         tracker.install();
     }
+
+    // This is a single-purpose binary to benchmark this filter, so we
+    // shouldn't be eagerly returning device memory.
+    halide_reuse_device_allocations(nullptr, true);
 
     if (benchmark) {
         r.run_for_benchmark(benchmark_min_time, benchmark_min_iters, benchmark_max_iters);
