@@ -96,7 +96,6 @@ Target calculate_host_target() {
     user_assert(have_altivec)
         << "The POWERPC backend assumes at least AltiVec support. This machine does not appear to have AltiVec.\n";
 
-    std::vector<Target::Feature> initial_features;
     if (have_vsx) initial_features.push_back(Target::VSX);
     if (arch_2_07) initial_features.push_back(Target::POWER_ARCH_2_07);
 #else
@@ -327,6 +326,7 @@ const std::map<std::string, Target::Feature> feature_name_map = {
     {"opencl", Target::OpenCL},
     {"cl_doubles", Target::CLDoubles},
     {"cl_half", Target::CLHalf},
+    {"cl_atomics64", Target::CLAtomics64},
     {"opengl", Target::OpenGL},
     {"openglcompute", Target::OpenGLCompute},
     {"egl", Target::EGL},
