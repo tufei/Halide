@@ -22,7 +22,7 @@ namespace {
 /** If an integer expression varies linearly with the variables in the
  * scope, return the linear term. Otherwise return an undefined
  * Expr. */
-Expr is_linear(Expr e, const Scope<Expr> &linear) {
+Expr is_linear(const Expr &e, const Scope<Expr> &linear) {
     if (e.type() != Int(32)) {
         return Expr();
     }
@@ -105,7 +105,7 @@ public:
 };
 
 /** A helper for block_to_vector below. */
-void block_to_vector(Stmt s, vector<Stmt> &v) {
+void block_to_vector(const Stmt &s, vector<Stmt> &v) {
     const Block *b = s.as<Block>();
     if (!b) {
         v.push_back(s);
@@ -116,7 +116,7 @@ void block_to_vector(Stmt s, vector<Stmt> &v) {
 }
 
 /** Unpack a block into its component Stmts. */
-vector<Stmt> block_to_vector(Stmt s) {
+vector<Stmt> block_to_vector(const Stmt &s) {
     vector<Stmt> result;
     block_to_vector(s, result);
     return result;
@@ -202,7 +202,7 @@ class LoopCarryOverLoop : public IRMutator {
         Expr step = is_linear(value, linear);
         ScopedBinding<Expr> bind(linear, op->name, step);
 
-        containing_lets.push_back({op->name, value});
+        containing_lets.emplace_back(op->name, value);
 
         Stmt stmt;
         Stmt body = mutate(op->body);
@@ -265,7 +265,9 @@ class LoopCarryOverLoop : public IRMutator {
             bool safe = (load->image.defined() ||
                          load->param.defined() ||
                          in_consume.contains(load->name));
-            if (!safe) continue;
+            if (!safe) {
+                continue;
+            }
 
             bool represented = false;
             for (vector<const Load *> &v : loads) {
@@ -294,7 +296,9 @@ class LoopCarryOverLoop : public IRMutator {
         for (int i = 0; i < (int)indices.size(); i++) {
             for (int j = 0; j < (int)indices.size(); j++) {
                 // Don't catch loop invariants here.
-                if (i == j) continue;
+                if (i == j) {
+                    continue;
+                }
                 if (loads[i][0]->name == loads[j][0]->name &&
                     next_indices[j].defined() &&
                     graph_equal(indices[i], next_indices[j]) &&
@@ -317,9 +321,13 @@ class LoopCarryOverLoop : public IRMutator {
         while (!done) {
             done = true;
             for (size_t i = 0; i < chains.size(); i++) {
-                if (chains[i].empty()) continue;
+                if (chains[i].empty()) {
+                    continue;
+                }
                 for (size_t j = 0; j < chains.size(); j++) {
-                    if (chains[j].empty()) continue;
+                    if (chains[j].empty()) {
+                        continue;
+                    }
                     if (chains[i].back() == chains[j].front()) {
                         chains[i].insert(chains[i].end(), chains[j].begin() + 1, chains[j].end());
                         chains[j].clear();
@@ -406,7 +414,7 @@ class LoopCarryOverLoop : public IRMutator {
                                                         Parameter(), const_true(orig_load->type.lanes()), ModulusRemainder());
                     not_first_iteration_scratch_stores.push_back(store_to_scratch);
                 } else {
-                    initial_scratch_values.push_back(orig_load);
+                    initial_scratch_values.emplace_back(orig_load);
                 }
                 if (i > 0) {
                     Stmt shuffle = Store::make(scratch, load_from_scratch,
@@ -426,7 +434,7 @@ class LoopCarryOverLoop : public IRMutator {
             call = simplify(common_subexpression_elimination(call));
             // Peel off lets
             while (const Let *l = call.as<Let>()) {
-                initial_lets.push_back({l->name, l->value});
+                initial_lets.emplace_back(l->name, l->value);
                 call = l->body;
             }
             internal_assert(call.as<Call>());

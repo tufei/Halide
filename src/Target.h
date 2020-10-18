@@ -9,10 +9,8 @@
 #include <stdint.h>
 #include <string>
 
-#include "Error.h"
-#include "Expr.h"
+#include "DeviceAPI.h"
 #include "Type.h"
-#include "Util.h"
 #include "runtime/HalideRuntime.h"
 
 namespace Halide {
@@ -77,6 +75,9 @@ struct Target {
         CUDACapability35 = halide_target_feature_cuda_capability35,
         CUDACapability50 = halide_target_feature_cuda_capability50,
         CUDACapability61 = halide_target_feature_cuda_capability61,
+        CUDACapability70 = halide_target_feature_cuda_capability70,
+        CUDACapability75 = halide_target_feature_cuda_capability75,
+        CUDACapability80 = halide_target_feature_cuda_capability80,
         OpenCL = halide_target_feature_opencl,
         CLDoubles = halide_target_feature_cl_doubles,
         CLHalf = halide_target_feature_cl_half,
@@ -89,7 +90,6 @@ struct Target {
         Profile = halide_target_feature_profile,
         NoRuntime = halide_target_feature_no_runtime,
         Metal = halide_target_feature_metal,
-        MinGW = halide_target_feature_mingw,
         CPlusPlusMangling = halide_target_feature_c_plus_plus_mangling,
         LargeBuffers = halide_target_feature_large_buffers,
         HexagonDma = halide_target_feature_hexagon_dma,
@@ -112,7 +112,6 @@ struct Target {
         TracePipeline = halide_target_feature_trace_pipeline,
         D3D12Compute = halide_target_feature_d3d12compute,
         StrictFloat = halide_target_feature_strict_float,
-        LegacyBufferWrappers = halide_target_feature_legacy_buffer_wrappers,
         TSAN = halide_target_feature_tsan,
         ASAN = halide_target_feature_asan,
         CheckUnsafePromises = halide_target_feature_check_unsafe_promises,
@@ -121,8 +120,11 @@ struct Target {
         DisableLLVMLoopOpt = halide_target_feature_disable_llvm_loop_opt,
         WasmSimd128 = halide_target_feature_wasm_simd128,
         WasmSignExt = halide_target_feature_wasm_signext,
+        WasmSatFloatToInt = halide_target_feature_wasm_sat_float_to_int,
         SVE = halide_target_feature_sve,
         SVE2 = halide_target_feature_sve2,
+        ARMDotProd = halide_target_feature_arm_dot_prod,
+        LLVMLargeCodeModel = halide_llvm_large_code_model,
         FeatureEnd = halide_target_feature_end
     };
     Target()
@@ -153,9 +155,13 @@ struct Target {
     /** Check if a target string is valid. */
     static bool validate_target_string(const std::string &s);
 
+    /** Return true if any of the arch/bits/os fields are "unknown"/0;
+        return false otherwise. */
+    bool has_unknowns() const;
+
     void set_feature(Feature f, bool value = true);
 
-    void set_features(std::vector<Feature> features_to_set, bool value = true);
+    void set_features(const std::vector<Feature> &features_to_set, bool value = true);
 
     bool has_feature(Feature f) const;
 
@@ -163,9 +169,9 @@ struct Target {
         return has_feature((Feature)f);
     }
 
-    bool features_any_of(std::vector<Feature> test_features) const;
+    bool features_any_of(const std::vector<Feature> &test_features) const;
 
-    bool features_all_of(std::vector<Feature> test_features) const;
+    bool features_all_of(const std::vector<Feature> &test_features) const;
 
     /** Return a copy of the target with the given feature set.
      * This is convenient when enabling certain features (e.g. NoBoundsQuery)
@@ -203,6 +209,12 @@ struct Target {
     /** Returns whether a particular device API can be used with this
      * Target. */
     bool supports_device_api(DeviceAPI api) const;
+
+    /** If this Target (including all Features) requires a specific DeviceAPI,
+     * return it. If it doesn't, return DeviceAPI::None.  If the Target has
+     * features with multiple (different) DeviceAPI requirements, the result
+     * will be an arbitrary DeviceAPI. */
+    DeviceAPI get_required_device_api() const;
 
     bool operator==(const Target &other) const {
         return os == other.os &&
@@ -265,6 +277,11 @@ struct Target {
             return (((uint64_t)1) << 31) - 1;
         }
     }
+
+    /** Get the minimum cuda capability found as an integer. Returns
+     * 20 (our minimum supported cuda compute capability) if no cuda
+     * features are set. */
+    int get_cuda_capability_lower_bound() const;
 
     /** Was libHalide compiled with support for this target? */
     bool supported() const;

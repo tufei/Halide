@@ -56,7 +56,7 @@ public:
     }
 };
 
-bool loads_from_buffer(Expr e, string buf) {
+bool loads_from_buffer(const Expr &e, const string &buf) {
     LoadsFromBuffer l(buf);
     e.accept(&l);
     return l.result;
@@ -67,14 +67,22 @@ class IsNoOp : public IRVisitor {
     using IRVisitor::visit;
 
     Expr make_and(Expr a, Expr b) {
-        if (is_zero(a) || is_one(b)) return a;
-        if (is_zero(b) || is_one(a)) return b;
+        if (is_zero(a) || is_one(b)) {
+            return a;
+        }
+        if (is_zero(b) || is_one(a)) {
+            return b;
+        }
         return a && b;
     }
 
     Expr make_or(Expr a, Expr b) {
-        if (is_zero(a) || is_one(b)) return b;
-        if (is_zero(b) || is_one(a)) return a;
+        if (is_zero(a) || is_one(b)) {
+            return b;
+        }
+        if (is_zero(b) || is_one(a)) {
+            return a;
+        }
         return a || b;
     }
 
@@ -303,9 +311,14 @@ class SimplifyUsingBounds : public IRMutator {
     template<typename StmtOrExpr, typename LetStmtOrLet>
     StmtOrExpr visit_let(const LetStmtOrLet *op) {
         Expr value = mutate(op->value);
-        containing_loops.push_back({op->name, {value, value}});
-        StmtOrExpr body = mutate(op->body);
-        containing_loops.pop_back();
+        StmtOrExpr body;
+        if (value.type() == Int(32) && is_pure(value)) {
+            containing_loops.push_back({op->name, {value, value}});
+            body = mutate(op->body);
+            containing_loops.pop_back();
+        } else {
+            body = mutate(op->body);
+        }
         return LetStmtOrLet::make(op->name, value, body);
     }
 

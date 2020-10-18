@@ -2,12 +2,14 @@
 
 #include "CodeGen_GPU_Dev.h"
 #include "Debug.h"
+#include "ExternFuncArgument.h"
 #include "IRMutator.h"
 #include "IROperator.h"
 #include "IRPrinter.h"
 #include "Substitute.h"
 
 #include <map>
+#include <utility>
 
 namespace Halide {
 namespace Internal {
@@ -44,7 +46,7 @@ class FindBufferUsage : public IRVisitor {
         }
     }
 
-    bool is_buffer_var(Expr e) {
+    bool is_buffer_var(const Expr &e) {
         const Variable *var = e.as<Variable>();
         return var && (var->name == buffer + ".buffer");
     }
@@ -56,7 +58,9 @@ class FindBufferUsage : public IRVisitor {
                 devices_touched.insert(current_device_api);
             }
             for (size_t i = 0; i < op->args.size(); i++) {
-                if (i == 1) continue;
+                if (i == 1) {
+                    continue;
+                }
                 op->args[i].accept(this);
             }
         } else if (op->is_intrinsic(Call::image_store)) {
@@ -66,7 +70,9 @@ class FindBufferUsage : public IRVisitor {
                 devices_writing.insert(current_device_api);
             }
             for (size_t i = 0; i < op->args.size(); i++) {
-                if (i == 1) continue;
+                if (i == 1) {
+                    continue;
+                }
                 op->args[i].accept(this);
             }
         } else if (op->is_intrinsic(Call::debug_to_file)) {
@@ -139,9 +145,9 @@ class InjectBufferCopiesForSingleBuffer : public IRMutator {
     using IRMutator::visit;
 
     // The buffer being managed
-    string buffer;
+    const string buffer;
 
-    bool is_external;
+    const bool is_external;
 
     enum FlagState {
         Unknown,
@@ -224,7 +230,9 @@ class InjectBufferCopiesForSingleBuffer : public IRMutator {
         for (DeviceAPI d : finder.devices_touched) {
             // TODO: looks dubious, but removing causes crashes in correctness_debug_to_file
             // with target=host-metal.
-            if (d == DeviceAPI::Host) continue;
+            if (d == DeviceAPI::Host) {
+                continue;
+            }
             internal_assert(touching_device == DeviceAPI::None)
                 << "Buffer " << buffer << " was touched on multiple devices within a single leaf Stmt!\n";
             touching_device = d;
@@ -429,7 +437,7 @@ private:
 
     using IRVisitor::visit;
 
-    void check_and_record_last_use(Stmt s) {
+    void check_and_record_last_use(const Stmt &s) {
         // Sniff what happens to the buffer inside the stmt
         FindBufferUsage finder(buffer, DeviceAPI::Host);
         s.accept(&finder);
@@ -508,7 +516,7 @@ class InjectBufferCopies : public IRMutator {
 
     public:
         InjectDeviceDestructor(string b)
-            : buffer(b) {
+            : buffer(std::move(b)) {
         }
     };
 
@@ -563,7 +571,7 @@ class InjectBufferCopies : public IRMutator {
 
     public:
         InjectCombinedAllocation(string b, Type t, vector<Expr> e, Expr c, DeviceAPI d)
-            : buffer(b), type(t), extents(e), condition(c), device_api(d) {
+            : buffer(std::move(b)), type(t), extents(std::move(e)), condition(std::move(c)), device_api(d) {
         }
     };
 
@@ -586,7 +594,7 @@ class InjectBufferCopies : public IRMutator {
         }
 
         FreeAfterLastUse(Stmt s, Stmt f)
-            : last_use(s), free_stmt(f) {
+            : last_use(std::move(s)), free_stmt(std::move(f)) {
         }
     };
 
@@ -745,6 +753,16 @@ class InjectBufferCopiesForInputsAndOutputs : public IRMutator {
             IRVisitor::visit(op);
         }
 
+        void visit(const Call *op) override {
+            // We shouldn't need to look for Buffers here,
+            // since we expect this to be run after StorageFlattening.
+            // Add an assertion check just in case a change to lowering ever
+            // subverts this ordering expectation.
+            internal_assert(op->call_type != Call::Halide &&
+                            op->call_type != Call::Image);
+            IRVisitor::visit(op);
+        }
+
     public:
         set<string> result;
     };
@@ -767,13 +785,23 @@ public:
     }
 
     InjectBufferCopiesForInputsAndOutputs(Stmt s)
-        : site(s) {
+        : site(std::move(s)) {
     }
 };
 
 }  // namespace
 
 Stmt inject_host_dev_buffer_copies(Stmt s, const Target &t) {
+    // Hexagon code assumes that the host-based wrapper code
+    // handles all copies to/from device, so this isn't necessary;
+    // furthermore, we would actually generate wrong code by proceeding
+    // here, as this implementation assumes we start from the host (which
+    // isn't true for Hexagon), and that it's safe to inject calls to copy
+    // and/or mark things dirty (which also isn't true for Hexagon).
+    if (t.arch == Target::Hexagon) {
+        return s;
+    }
+
     // Handle internal allocations
     s = InjectBufferCopies().mutate(s);
 

@@ -34,7 +34,7 @@ private:
     using IRMutator::visit;
 
     // Rewrite a load to have a new index, updating the type if necessary.
-    Expr make_load(const Load *load, Expr index, ModulusRemainder alignment) {
+    Expr make_load(const Load *load, const Expr &index, ModulusRemainder alignment) {
         internal_assert(is_one(load->predicate)) << "Load should not be predicated.\n";
         return mutate(Load::make(load->type.with_lanes(index.type().lanes()), load->name,
                                  index, load->image, load->param,
@@ -55,6 +55,10 @@ private:
 
         if (op->image.defined()) {
             // We can't reason about the alignment of external images.
+            return IRMutator::visit(op);
+        }
+
+        if (required_alignment % op->type.bytes() != 0) {
             return IRMutator::visit(op);
         }
 
@@ -79,7 +83,6 @@ private:
         bool known_alignment = is_aligned || (!is_aligned && aligned_offset != 0);
         int lanes = ramp->lanes;
         int native_lanes = required_alignment / op->type.bytes();
-
         int stride = static_cast<int>(*const_stride);
         if (stride != 1) {
             internal_assert(stride >= 0);
@@ -142,7 +145,7 @@ private:
 
 }  // namespace
 
-Stmt align_loads(Stmt s, int alignment) {
+Stmt align_loads(const Stmt &s, int alignment) {
     return AlignLoads(alignment).mutate(s);
 }
 
