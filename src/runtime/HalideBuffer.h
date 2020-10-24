@@ -9,10 +9,10 @@
 #include <algorithm>
 #include <atomic>
 #include <cassert>
+#include <cstdint>
+#include <cstring>
 #include <limits>
 #include <memory>
-#include <stdint.h>
-#include <string.h>
 #include <vector>
 
 #if defined(__has_feature)
@@ -69,7 +69,9 @@ namespace Internal {
 template<typename Container>
 bool any_zero(const Container &c) {
     for (int i : c) {
-        if (i == 0) return true;
+        if (i == 0) {
+            return true;
+        }
     }
     return false;
 }

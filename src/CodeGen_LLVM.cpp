@@ -170,15 +170,9 @@ llvm::GlobalValue::LinkageTypes llvm_linkage(LinkageType t) {
 // A local helper to make an llvm value type representing
 // alignment. Can't be declared in a header without introducing a
 // dependence on the LLVM headers.
-#if LLVM_VERSION >= 100
 llvm::Align make_alignment(int a) {
     return llvm::Align(a);
 }
-#else
-int make_alignment(int a) {
-    return a;
-}
-#endif
 
 }  // namespace
 
@@ -959,7 +953,7 @@ void CodeGen_LLVM::compile_buffer(const Buffer<> &buf) {
     // Embed the halide_buffer_t and make it point to the data array.
     GlobalVariable *global = new GlobalVariable(*module, halide_buffer_t_type,
                                                 false, GlobalValue::PrivateLinkage,
-                                                0, buf.name() + ".buffer");
+                                                nullptr, buf.name() + ".buffer");
     global->setInitializer(buffer_struct);
 
     // Finally, dump it in the symbol table
@@ -3178,7 +3172,7 @@ void CodeGen_LLVM::visit(const Call *op) {
         }
 
         // Create a null-initialized global to track this object.
-        const auto base_fn = sub_fns.back().fn;
+        auto *const base_fn = sub_fns.back().fn;
         const string global_name = unique_name(base_fn->getName().str() + "_indirect_fn_ptr");
         GlobalVariable *global = new GlobalVariable(
             *module,
@@ -3533,7 +3527,7 @@ Constant *CodeGen_LLVM::create_binary_blob(const vector<char> &data, const strin
     llvm::Type *type = ArrayType::get(i8_t, data.size());
     GlobalVariable *global = new GlobalVariable(*module, type,
                                                 constant, GlobalValue::PrivateLinkage,
-                                                0, name);
+                                                nullptr, name);
     ArrayRef<unsigned char> data_array((const unsigned char *)&data[0], data.size());
     global->setInitializer(ConstantDataArray::get(*context, data_array));
     size_t alignment = 32;
@@ -3746,7 +3740,7 @@ void CodeGen_LLVM::do_parallel_tasks(const vector<ParallelTask> &tasks) {
                 // Take the sum of min threads across all
                 // cascaded Fork nodes.
                 const Fork *node = op;
-                while (node != NULL) {
+                while (node != nullptr) {
                     result = 0;
                     auto after_acquires = skip_acquires(node->first);
                     direct_acquires += after_acquires.second;
@@ -3755,7 +3749,7 @@ void CodeGen_LLVM::do_parallel_tasks(const vector<ParallelTask> &tasks) {
                     total_threads += result;
 
                     const Fork *continued_branches = node->rest.as<Fork>();
-                    if (continued_branches == NULL) {
+                    if (continued_branches == nullptr) {
                         result = 0;
                         after_acquires = skip_acquires(node->rest);
                         direct_acquires += after_acquires.second;
@@ -4458,9 +4452,7 @@ void CodeGen_LLVM::codegen_vector_reduce(const VectorReduce *op, const Expr &ini
         return;
     }
 
-#if LLVM_VERSION >= 90
-    if (output_lanes == 1 &&
-        (target.arch != Target::ARM || LLVM_VERSION >= 100)) {
+    if (output_lanes == 1) {
         const int input_lanes = val.type().lanes();
         const int input_bytes = input_lanes * val.type().bytes();
         const bool llvm_has_intrinsic =
@@ -4572,7 +4564,6 @@ void CodeGen_LLVM::codegen_vector_reduce(const VectorReduce *op, const Expr &ini
             return;
         }
     }
-#endif
 
     if (output_lanes == 1 &&
         factor > native_lanes &&
@@ -4645,7 +4636,7 @@ void CodeGen_LLVM::codegen_vector_reduce(const VectorReduce *op, const Expr &ini
 }  // namespace Internal
 
 void CodeGen_LLVM::visit(const Atomic *op) {
-    if (op->mutex_name != "") {
+    if (!op->mutex_name.empty()) {
         internal_assert(!inside_atomic_mutex_node)
             << "Nested atomic mutex locks detected. This might causes a deadlock.\n";
         ScopedValue<bool> old_inside_atomic_mutex_node(inside_atomic_mutex_node, true);
