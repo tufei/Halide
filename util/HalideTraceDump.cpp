@@ -33,7 +33,8 @@ struct BufferOutputOpts {
         JPG,
         PGM,
         TMP,
-        MAT
+        MAT,
+        BPG
     };
 
     enum OutputType type;
@@ -194,6 +195,9 @@ void dump_func(string name, FuncInfo &func, BufferOutputOpts output_opts) {
     case BufferOutputOpts::MAT:
         filename = name + ".mat";
         break;
+    case BufferOutputOpts::BPG:
+        filename = name + ".bpg";
+        break;
     default:
         exit(1);
     }
@@ -315,6 +319,8 @@ int main(int argc, char *const *argv) {
         outputopts.type = BufferOutputOpts::TMP;
     } else if (imagetype == "mat") {
         outputopts.type = BufferOutputOpts::MAT;
+    } else if (imagetype == "bpg") {
+        outputopts.type = BufferOutputOpts::BPG;
     } else {
         usage(argv);
     }

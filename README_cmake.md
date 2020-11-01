@@ -453,12 +453,15 @@ overridden by setting the following variables:
 The OpenGL paths will need to be set if you intend to use OpenGL with X11 on
 macOS.
 
-Halide also searches for `libpng` and `libjpeg-turbo` through the
-[`FindPNG`][findpng] and [`FindJPEG`][findjpeg] modules, respectively. They can
-be overridden by setting the following variables.
+Halide also searches for `libbpg`, `libpng`, and `libjpeg-turbo` through the
+[`FindBPG`][findbpg], [`FindPNG`][findpng], and [`FindJPEG`][findjpeg]
+modules, respectively.  They can be overridden by setting the following
+variables.
 
 | Variable            | Description                                        |
 | ------------------- | -------------------------------------------------- |
+| `BPG_LIBRARIES`     | Paths to the libraries to link against to use BPG. |
+| `BPG_INCLUDE_DIRS`  | Path to `bpg.h`, etc.                              |
 | `PNG_LIBRARIES`     | Paths to the libraries to link against to use PNG. |
 | `PNG_INCLUDE_DIRS`  | Path to `png.h`, etc.                              |
 | `JPEG_LIBRARIES`    | Paths to the libraries needed to use JPEG.         |
@@ -743,7 +746,7 @@ Halide defines the following targets that are available to users:
 | `Halide::Generator`  | this is the target to use when defining a generator executable. It supplies a `main()` function.                                     |
 | `Halide::Runtime`    | adds include paths to the Halide runtime headers                                                                                     |
 | `Halide::Tools`      | adds include paths to the Halide tools, including the benchmarking utility.                                                          |
-| `Halide::ImageIO`    | adds include paths to the Halide image IO utility and sets up dependencies to PNG / JPEG if they are available.                      |
+| `Halide::ImageIO`    | adds include paths to the Halide image IO utility and sets up dependencies to BPG / PNG / JPEG if they are available.                      |
 | `Halide::RunGenMain` | used with the `REGISTRATION` parameter of `add_halide_library` to create simple runners and benchmarking tools for Halide libraries. |
 
 The following targets are not guaranteed to be available:
@@ -1162,6 +1165,7 @@ guidelines you should follow when writing a new app.
 [findcudatoolkit]:
   https://cmake.org/cmake/help/latest/module/FindCUDAToolkit.html
 [finddoxygen]: https://cmake.org/cmake/help/latest/module/FindDoxygen.html
+[findbpg]: https://cmake.org/cmake/help/latest/module/FindBPG.html
 [findjpeg]: https://cmake.org/cmake/help/latest/module/FindJPEG.html
 [findopencl]: https://cmake.org/cmake/help/latest/module/FindOpenCL.html
 [findopengl]: https://cmake.org/cmake/help/latest/module/FindOpenGL.html
@@ -1180,6 +1184,7 @@ guidelines you should follow when writing a new app.
 [install-files]: https://cmake.org/cmake/help/latest/command/install.html#files
 [install-targets]:
   https://cmake.org/cmake/help/latest/command/install.html#targets
+[libbpg]: https://github.com/tufei/libbpg/
 [libjpeg]: https://www.libjpeg-turbo.org/
 [libpng]: http://www.libpng.org/pub/png/libpng.html
 [lld]: https://lld.llvm.org/

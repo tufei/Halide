@@ -1,5 +1,6 @@
 configure_file(images/gray.png images/gray.png COPYONLY)
 configure_file(images/rgb.png images/rgb.png COPYONLY)
+configure_file(images/rgb.bpg images/rgb.bpg COPYONLY)
 
 function(add_tutorial source_file)
     set(options WITH_IMAGE_IO WITH_OPENMP)

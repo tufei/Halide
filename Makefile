@@ -357,8 +357,8 @@ LIBJPEG_LIBS ?= $(LIBJPEG_LINKER_PATH) -ljpeg
 LIBPNG_INCLUDE_DIRS = $(filter -I%,$(LIBPNG_CXX_FLAGS))
 LIBJPEG_CXX_FLAGS ?= $(shell echo $(LIBPNG_INCLUDE_DIRS) | sed -e'/[Cc]ellar[/]libpng/!s=\(.*\)=\1/..=;s=\(.*\)/[Cc]ellar/libpng/.*=\1/include=')
 
-IMAGE_IO_LIBS = $(LIBPNG_LIBS) $(LIBJPEG_LIBS)
-IMAGE_IO_CXX_FLAGS = $(LIBPNG_CXX_FLAGS) $(LIBJPEG_CXX_FLAGS)
+IMAGE_IO_LIBS = $(LIBBPG_LIBS) $(LIBPNG_LIBS) $(LIBJPEG_LIBS)
+IMAGE_IO_CXX_FLAGS = $(LIBBPG_CXX_FLAGS) $(LIBPNG_CXX_FLAGS) $(LIBJPEG_CXX_FLAGS)
 
 # We're building into the current directory $(CURDIR). Find the Halide
 # repo root directory (the location of the makefile)

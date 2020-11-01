@@ -59,10 +59,11 @@ Arguments:
         some_input_buffer=/path/to/existing/file.png
         some_output_buffer=/path/to/create/output/file.png
 
-    We currently support JPG, PGM, PNG, PPM format. If the type or dimensions
-    of the input or output file type can't support the data (e.g., your filter
-    uses float32 input and output, and you load/save to PNG), we'll use the most
-    robust approximation within the format and issue a warning to stdout.
+    We currently support BPG, JPG, PGM, PNG, PPM format. If the type or
+    dimensions of the input or output file type can't support the data
+    (e.g., your filter uses float32 input and output, and you load/save to
+    PNG), we'll use the most robust approximation within the format and issue
+    a warning to stdout.
 
     (We anticipate adding other image formats in the future, in particular,
     TIFF and TMP.)

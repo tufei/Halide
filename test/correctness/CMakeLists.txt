@@ -345,6 +345,9 @@ tests(GROUPS correctness
 
 # Make sure the test that needs image_io has it
 target_link_libraries(correctness_image_io PRIVATE Halide::ImageIO)
+target_compile_definitions(correctness_image_io
+                           INTERFACE
+                           $<TARGET_PROPERTY:BPG::BPG,COMPILE_DEFINITIONS>)
 
 # Tests which use external funcs need to enable exports.
 set_target_properties(correctness_async

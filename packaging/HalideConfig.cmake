@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 
-set(${CMAKE_FIND_PACKAGE_NAME}_known_components Halide PNG JPEG)
+set(${CMAKE_FIND_PACKAGE_NAME}_known_components Halide BPG PNG JPEG)
 
 if (${CMAKE_FIND_PACKAGE_NAME}_FIND_COMPONENTS)
     set(${CMAKE_FIND_PACKAGE_NAME}_comps ${${CMAKE_FIND_PACKAGE_NAME}_FIND_COMPONENTS})
@@ -125,7 +125,7 @@ foreach (comp IN LISTS ${CMAKE_FIND_PACKAGE_NAME}_comps)
         return()
     endif ()
 
-    # ${comp} is either PNG or JPEG, and this works for both packages
+    # ${comp} is either BPG, PNG, or JPEG, and this works for all packages
     if (NOT TARGET ${comp}::${comp})
         set(extraArgs "")
         if (${CMAKE_FIND_PACKAGE_NAME}_FIND_QUIETLY)

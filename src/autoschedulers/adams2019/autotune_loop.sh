@@ -123,7 +123,7 @@ make_featurization() {
 
 
     # We don't need image I/O for this purpose,
-    # so leave out libpng and libjpeg
+    # so leave out libbpg, libpng, and libjpeg
     c++ \
         -std=c++11 \
         -I ${HALIDE_DISTRIB_PATH}/include \
@@ -131,7 +131,7 @@ make_featurization() {
         ${D}/*.registration.cpp \
         ${D}/*.a \
         -o ${D}/bench \
-        -DHALIDE_NO_PNG -DHALIDE_NO_JPEG \
+        -DHALIDE_NO_PNG -DHALIDE_NO_JPEG -DHALIDE_NO_BPG \
         -ldl -lpthread
 }
 

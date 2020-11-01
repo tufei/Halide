@@ -9,7 +9,7 @@ add_executable(binary2cpp binary2cpp.cpp)
 target_compile_options(binary2cpp PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4996>)
 
 ##
-# Interface target for enabling PNG/JPEG support in Halide
+# Interface target for enabling BPG/PNG/JPEG support in Halide
 ##
 
 add_library(Halide_ImageIO INTERFACE)
@@ -17,10 +17,13 @@ add_library(Halide::ImageIO ALIAS Halide_ImageIO)
 set_target_properties(Halide_ImageIO PROPERTIES EXPORT_NAME ImageIO)
 target_link_libraries(Halide_ImageIO
                       INTERFACE
+                      $<TARGET_NAME_IF_EXISTS:BPG::BPG>
                       $<TARGET_NAME_IF_EXISTS:PNG::PNG>
                       $<TARGET_NAME_IF_EXISTS:JPEG::JPEG>)
 target_compile_definitions(Halide_ImageIO
                            INTERFACE
+                           $<TARGET_PROPERTY:BPG::BPG,COMPILE_DEFINITIONS>
+                           $<$<NOT:$<TARGET_EXISTS:BPG::BPG>>:HALIDE_NO_BPG>
                            $<$<NOT:$<TARGET_EXISTS:PNG::PNG>>:HALIDE_NO_PNG>
                            $<$<NOT:$<TARGET_EXISTS:JPEG::JPEG>>:HALIDE_NO_JPEG>)
 target_include_directories(Halide_ImageIO INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)

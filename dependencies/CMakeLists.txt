@@ -22,6 +22,7 @@ endif ()
 
 add_subdirectory(llvm)
 
+add_subdirectory(bpg)
 add_subdirectory(jpeg)
 add_subdirectory(png)
 

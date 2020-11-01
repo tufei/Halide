@@ -253,11 +253,11 @@ HALIDE_DISTRIB ?= /path/to/halide/distrib/folder
 
 $(BIN)/RunGenMain.o: $(HALIDE_DISTRIB)/tools/RunGenMain.cpp
   @mkdir -p $(@D)
-  @$(CXX) -c $< $(CXXFLAGS) $(LIBPNG_CXX_FLAGS) $(LIBJPEG_CXX_FLAGS) -I$(BIN) -o $@
+  @$(CXX) -c $< $(CXXFLAGS) $(LIBBPG_CXX_FLAGS) $(LIBPNG_CXX_FLAGS) $(LIBJPEG_CXX_FLAGS) -I$(BIN) -o $@
 
 .PRECIOUS: $(BIN)/%.rungen
 $(BIN)/%.rungen: $(BIN)/%.a $(BIN)/%.registration.cpp $(BIN)/RunGenMain.o
-  $(CXX) $(CXXFLAGS) $^ -o $@ $(LIBPNG_LIBS) $(LIBJPEG_LIBS) $(LDFLAGS)
+  $(CXX) $(CXXFLAGS) $^ -o $@ $(LIBBPG_LIBS) $(LIBPNG_LIBS) $(LIBJPEG_LIBS) $(LDFLAGS)
 
 RUNARGS ?=
 
