@@ -6,7 +6,7 @@
 
 #include "tiled_blur.h"
 
-// defined away to avoid requiring libpng, libjpeg everywhere;
+// defined away to avoid requiring libbpg, libpng, libjpeg everywhere;
 // left in because useful for debugging and profiling.
 #define SAVE_IMAGES 0
 

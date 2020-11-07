@@ -1,5 +1,6 @@
 #include "Halide.h"
-// Avoid the need to link this test to libjpeg and libpng
+// Avoid the need to link this test to libbpg, libjpeg, and libpng
+#define HALIDE_NO_BPG
 #define HALIDE_NO_JPEG
 #define HALIDE_NO_PNG
 #include "halide_image_io.h"
