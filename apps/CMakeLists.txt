@@ -45,6 +45,7 @@ function(add_app_test NAME)
     set(cmakeDefinitionOpts
         "-DCMAKE_PREFIX_PATH=${HALIDE_DIR}"
         "-DCMAKE_BUILD_TYPE=$<CONFIG>"
+        "-DCMAKE_MODULE_PATH=${CMAKE_SOURCE_DIR}/cmake/Modules"
         "-DLLVM_DIR=${LLVM_DIR}"
         "-DHalide_TARGET=${Halide_TARGET}")
 
