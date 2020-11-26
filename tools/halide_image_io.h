@@ -31,6 +31,7 @@
 #endif
 
 #ifndef HALIDE_NO_BPG
+#include <memory>
 #include "libbpg/bpg.h"
 #endif
 
