@@ -357,12 +357,11 @@ void CodeGen_ARM::visit(const Cast *op) {
         (op->value.type().is_int() || op->value.type().is_uint()) &&
         t.bits() == op->value.type().bits() * 2) {
         Expr a, b;
-        const Call *c = op->value.as<Call>();
-        if (c && c->is_intrinsic(Call::absd)) {
+        if (const Call *absd = Call::as_intrinsic(op->value, {Call::absd})) {
             ostringstream ss;
             int intrin_lanes = 128 / t.bits();
-            ss << "vabdl_" << (c->args[0].type().is_int() ? "i" : "u") << t.bits() / 2 << "x" << intrin_lanes;
-            value = call_intrin(t, intrin_lanes, ss.str(), c->args);
+            ss << "vabdl_" << (absd->args[0].type().is_int() ? "i" : "u") << t.bits() / 2 << "x" << intrin_lanes;
+            value = call_intrin(t, intrin_lanes, ss.str(), absd->args);
             return;
         }
     }
@@ -452,7 +451,7 @@ void CodeGen_ARM::visit(const Mul *op) {
 
 void CodeGen_ARM::visit(const Div *op) {
     if (!neon_intrinsics_disabled() &&
-        op->type.is_vector() && is_two(op->b) &&
+        op->type.is_vector() && is_const(op->b, 2) &&
         (op->a.as<Add>() || op->a.as<Sub>())) {
         vector<Expr> matches;
         for (size_t i = 0; i < averagings.size(); i++) {
@@ -483,7 +482,7 @@ void CodeGen_ARM::visit(const Sub *op) {
     // llvm will generate floating point negate instructions if we ask for (-0.0f)-x
     if (op->type.is_float() &&
         op->type.bits() >= 32 &&
-        is_zero(op->a)) {
+        is_const_zero(op->a)) {
         Constant *a;
         if (op->type.bits() == 32) {
             a = ConstantFP::getNegativeZero(f32_t);
@@ -656,7 +655,7 @@ void CodeGen_ARM::visit(const Max *op) {
 
 void CodeGen_ARM::visit(const Store *op) {
     // Predicated store
-    if (!is_one(op->predicate)) {
+    if (!is_const_one(op->predicate)) {
         CodeGen_Posix::visit(op);
         return;
     }
@@ -705,7 +704,7 @@ void CodeGen_ARM::visit(const Store *op) {
         }
     }
 
-    if (is_one(ramp->stride) &&
+    if (is_const_one(ramp->stride) &&
         shuffle && shuffle->is_interleave() &&
         type_ok_for_vst &&
         2 <= shuffle->vectors.size() && shuffle->vectors.size() <= 4) {
@@ -832,7 +831,7 @@ void CodeGen_ARM::visit(const Store *op) {
 
 void CodeGen_ARM::visit(const Load *op) {
     // Predicated load
-    if (!is_one(op->predicate)) {
+    if (!is_const_one(op->predicate)) {
         CodeGen_Posix::visit(op);
         return;
     }
