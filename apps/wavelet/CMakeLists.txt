@@ -42,7 +42,7 @@ if (EXISTS ${IMAGE})
     configure_file(${IMAGE} gray.png COPYONLY)
     add_test(NAME wavelet COMMAND wavelet gray.png .)
     set_tests_properties(wavelet PROPERTIES
-                         LABELS internal_app_tests
+                         LABELS wavelet
                          PASS_REGULAR_EXPRESSION "Success!"
                          SKIP_REGULAR_EXPRESSION "\\[SKIP\\]")
 endif ()
