@@ -905,11 +905,20 @@ extern int halide_memoization_cache_lookup(void *user_context, const uint8_t *ca
  *
  * If there is a memory allocation failure, the store does not store
  * the data into the cache.
+ *
+ * If has_eviction_key is true, the entry is marked with eviction_key to
+ * allow removing the key with halide_memoization_cache_evict.
  */
 extern int halide_memoization_cache_store(void *user_context, const uint8_t *cache_key, int32_t size,
                                           struct halide_buffer_t *realized_bounds,
                                           int32_t tuple_count,
-                                          struct halide_buffer_t **tuple_buffers);
+                                          struct halide_buffer_t **tuple_buffers,
+                                          bool has_eviction_key, uint64_t eviction_key);
+
+/** Evict all cache entries that were tagged with the given
+ *  eviction_key in the memoize scheduling directive.
+ */
+extern void halide_memoization_cache_evict(void *user_context, uint64_t eviction_key);
 
 /** If halide_memoization_cache_lookup succeeds,
  * halide_memoization_cache_release must be called to signal the
@@ -925,7 +934,7 @@ extern int halide_memoization_cache_store(void *user_context, const uint8_t *cac
  * modifiable host storage.
  *
  * This call is like free and does not have a failure return.
-  */
+ */
 extern void halide_memoization_cache_release(void *user_context, void *host);
 
 /** Free all memory and resources associated with the memoization cache.
@@ -1274,7 +1283,7 @@ typedef enum halide_target_feature_t {
     halide_target_feature_cl_doubles,   ///< Enable double support on OpenCL targets
     halide_target_feature_cl_atomic64,  ///< Enable 64-bit atomics operations on OpenCL targets
 
-    halide_target_feature_opengl,         ///< Enable the OpenGL runtime.
+    halide_target_feature_opengl,         ///< Enable the OpenGL runtime. NOTE: this feature is deprecated and will be removed in Halide 12.
     halide_target_feature_openglcompute,  ///< Enable OpenGL Compute runtime.
 
     halide_target_feature_user_context,  ///< Generated code takes a user_context pointer as first argument
