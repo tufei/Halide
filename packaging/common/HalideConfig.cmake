@@ -24,8 +24,8 @@ macro(Halide_find_component_dependency comp dep)
     endif ()
 endmacro()
 
-set(Halide_known_components Halide PNG JPEG static shared)
-set(Halide_components Halide PNG JPEG)
+set(Halide_known_components Halide PNG JPEG BPG static shared)
+set(Halide_components Halide PNG JPEG BPG)
 
 foreach (Halide_comp IN LISTS Halide_known_components)
     set(Halide_comp_${Halide_comp} NO)
@@ -75,6 +75,10 @@ endif ()
 
 if (Halide_comp_JPEG)
     Halide_find_component_dependency(JPEG JPEG)
+endif ()
+
+if (Halide_comp_BPG)
+    Halide_find_component_dependency(BPG BPG)
 endif ()
 
 ##
